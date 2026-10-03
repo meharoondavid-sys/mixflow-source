@@ -1,0 +1,6 @@
+{
+  "name": "MixFlow - Music Engineer SaaS",
+  "description": "SaaS platform for freelance music mixing and mastering engineers to manage clients, audio mix revisions, timestamped feedback, approvals, payments, and master deliveries.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
