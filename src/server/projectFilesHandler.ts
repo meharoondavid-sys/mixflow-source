@@ -270,12 +270,25 @@ export async function handleConfirmFileUpload(
     return { status: 403, body: { error: 'Forbidden: Organization membership required.' } };
   }
 
+  const allowedConfirmRoles = ['owner', 'admin', 'engineer', 'producer'];
+  if (!allowedConfirmRoles.includes(membership.role)) {
+    return { status: 403, body: { error: 'Forbidden: Your role cannot confirm project file uploads.' } };
+  }
+
   // Security: Storage path MUST be strictly scoped to organization_id/projectId/
   const expectedPrefix = `${project.organization_id}/${projectId}/`;
   if (!body.storagePath.startsWith(expectedPrefix)) {
     return {
       status: 400,
       body: { error: 'Security violation: Storage path does not match project organization scope.' },
+    };
+  }
+
+  const expectedFilePrefix = expectedPrefix + body.fileId + '_';
+  if (!body.storagePath.startsWith(expectedFilePrefix)) {
+    return {
+      status: 400,
+      body: { error: 'Security violation: Storage path does not match the uploaded file ID.' },
     };
   }
 
