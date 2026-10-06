@@ -567,6 +567,124 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
         </div>
       </div>
 
+          {/* Songs Tracklist Card */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
+                  <Music size={13} className="text-emerald-400" />
+                  <span>Songs & Tracklist</span>
+                </h3>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  {project.songs?.length || 0} {project.songs?.length === 1 ? 'song' : 'songs'} in this {project.project_type.toUpperCase()}
+                </p>
+              </div>
+            </div>
+
+            {songActionError && (
+              <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-xl text-xs text-red-400 flex items-center justify-between gap-2">
+                <span>{songActionError}</span>
+                <button onClick={() => setSongActionError(null)} className="text-red-400 hover:text-red-300">
+                  <X size={13} />
+                </button>
+              </div>
+            )}
+
+            {/* Songs List */}
+            {(!project.songs || project.songs.length === 0) ? (
+              <div className="py-8 text-center bg-zinc-950/60 rounded-xl border border-zinc-800/80 space-y-1">
+                <Music size={20} className="mx-auto text-zinc-600" />
+                <p className="text-xs text-zinc-400 font-medium">No songs recorded yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-zinc-800/80 border border-zinc-800/80 rounded-xl overflow-hidden bg-zinc-950/60">
+                {project.songs.map((song, index) => (
+                  <div key={song.id} className="py-3 px-4 flex items-center justify-between hover:bg-zinc-900/60 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 font-mono text-zinc-500 text-xs font-bold">
+                        {String(song.track_number || index + 1).padStart(2, '0')}
+                      </span>
+                      <div>
+                        <span className="text-xs font-semibold text-zinc-100 block">
+                          {song.title}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                          {song.status || 'in_production'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('mixflow:project-file-filter', { detail: { songId: song.id } }));
+                          document.getElementById('project-files-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                        title={`View files for ${song.title}`}
+                      >
+                        <FileText size={12} />
+                        <span>Files</span>
+                      </button>
+
+                    {canManageProjects && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditSong(song)}
+                          className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                          title="Edit track"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingSong(song)}
+                          className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                          title="Remove track"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add Track Form (for EPs, Albums, or Singles needing extra tracks) */}
+            {canManageProjects && (
+              <form onSubmit={handleAddSong} className="flex gap-2 pt-1">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="#"
+                  value={newTrackNumber}
+                  onChange={(e) => setNewTrackNumber(e.target.value)}
+                  className="w-16 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono text-center"
+                  title="Track number (optional, auto-increments)"
+                />
+                <input
+                  type="text"
+                  placeholder="Add another track title..."
+                  value={newTrackTitle}
+                  onChange={(e) => setNewTrackTitle(e.target.value)}
+                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+                <button
+                  type="submit"
+                  disabled={isAddingTrack || !newTrackTitle.trim()}
+                  className="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isAddingTrack ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  <span>Add Track</span>
+                </button>
+              </form>
+            )}
+          </div>
+
+
       {/* Main Content Grid: Description & Client Info vs Songs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2 cols): Description & Tracklist */}
@@ -885,108 +1003,6 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
             )}
           </div>
 
-          {/* Songs Tracklist Card */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
-                  <Music size={13} className="text-emerald-400" />
-                  <span>Songs & Tracklist</span>
-                </h3>
-                <p className="text-[11px] text-zinc-500 mt-0.5">
-                  {project.songs?.length || 0} {project.songs?.length === 1 ? 'song' : 'songs'} in this {project.project_type.toUpperCase()}
-                </p>
-              </div>
-            </div>
-
-            {songActionError && (
-              <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-xl text-xs text-red-400 flex items-center justify-between gap-2">
-                <span>{songActionError}</span>
-                <button onClick={() => setSongActionError(null)} className="text-red-400 hover:text-red-300">
-                  <X size={13} />
-                </button>
-              </div>
-            )}
-
-            {/* Songs List */}
-            {(!project.songs || project.songs.length === 0) ? (
-              <div className="py-8 text-center bg-zinc-950/60 rounded-xl border border-zinc-800/80 space-y-1">
-                <Music size={20} className="mx-auto text-zinc-600" />
-                <p className="text-xs text-zinc-400 font-medium">No songs recorded yet</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-zinc-800/80 border border-zinc-800/80 rounded-xl overflow-hidden bg-zinc-950/60">
-                {project.songs.map((song, index) => (
-                  <div key={song.id} className="py-3 px-4 flex items-center justify-between hover:bg-zinc-900/60 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 font-mono text-zinc-500 text-xs font-bold">
-                        {String(song.track_number || index + 1).padStart(2, '0')}
-                      </span>
-                      <div>
-                        <span className="text-xs font-semibold text-zinc-100 block">
-                          {song.title}
-                        </span>
-                        <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                          {song.status || 'in_production'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {canManageProjects && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditSong(song)}
-                          className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
-                          title="Edit track"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeletingSong(song)}
-                          className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Remove track"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add Track Form (for EPs, Albums, or Singles needing extra tracks) */}
-            {canManageProjects && (
-              <form onSubmit={handleAddSong} className="flex gap-2 pt-1">
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="#"
-                  value={newTrackNumber}
-                  onChange={(e) => setNewTrackNumber(e.target.value)}
-                  className="w-16 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono text-center"
-                  title="Track number (optional, auto-increments)"
-                />
-                <input
-                  type="text"
-                  placeholder="Add another track title..."
-                  value={newTrackTitle}
-                  onChange={(e) => setNewTrackTitle(e.target.value)}
-                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
-                />
-                <button
-                  type="submit"
-                  disabled={isAddingTrack || !newTrackTitle.trim()}
-                  className="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {isAddingTrack ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                  <span>Add Track</span>
-                </button>
-              </form>
-            )}
-          </div>
         </div>
 
         {/* Right Column (1 col): Client Card & Meta */}
