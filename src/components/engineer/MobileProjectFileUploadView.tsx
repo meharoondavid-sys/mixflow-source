@@ -57,13 +57,15 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
     setError(null);
     setDone(false);
     setProgress(1);
-    setStatus('Preparing secure upload…');
+    setStatus('Checking secure session…');
 
     try {
+      setStatus('Checking secure session…');
       const { data } = await getSupabase().auth.getSession();
       const accessToken = data.session?.access_token;
       if (!accessToken) throw new Error('Your session expired. Please sign in again.');
 
+      setStatus('Requesting secure upload slot…');
       const prepareRes = await fetch(`/api/projects/${projectId}/files/upload-url`, {
         method: 'POST',
         headers: {
@@ -87,11 +89,12 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
       if (!token) throw new Error('The secure upload token was not returned.');
 
       setProgress(2);
-      setStatus('Uploading directly to private storage…');
+      setStatus('Loading large-file uploader…');
 
       const projectRef = new URL(getSupabase().supabaseUrl).hostname.split('.')[0];
       const endpoint = `https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`;
       const { Upload } = await import('tus-js-client');
+      setStatus('Starting resumable upload…');
 
       await new Promise<void>((resolve, reject) => {
         const upload = new Upload(selectedFile, {
@@ -102,9 +105,9 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
             objectName: storagePath,
             contentType: selectedFile.type || 'application/octet-stream',
           },
-          chunkSize: 6 * 1024 * 1024,
+          chunkSize: 2 * 1024 * 1024,
           retryDelays: [0, 3000, 5000, 10000, 20000],
-          uploadDataDuringCreation: true,
+          uploadDataDuringCreation: false,
           storeFingerprintForResuming: false,
           removeFingerprintOnSuccess: true,
           onProgress: (uploaded, total) => {
