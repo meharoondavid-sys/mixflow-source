@@ -120,7 +120,12 @@ export function useProjectFiles(projectId?: string | null) {
           chunkSize: 6 * 1024 * 1024,
           retryDelays: [0, 3000, 5000, 10000, 20000],
           uploadDataDuringCreation: true,
+          // Do not reuse a TUS URL from an earlier attempt: each upload gets a new
+          // signed storage path/token from the server. Reusing an older URL can attach
+          // chunks to the wrong object and make confirmation fail.
+          storeFingerprintForResuming: false,
           removeFingerprintOnSuccess: true,
+          uploadDataDuringCreation: false,
           onProgress: (bytesUploaded, bytesTotal) => {
             const percent = Math.min(84, Math.max(1, Math.round((bytesUploaded / bytesTotal) * 84)));
             setUploadProgress(percent);
@@ -128,14 +133,9 @@ export function useProjectFiles(projectId?: string | null) {
           onError: (error) => reject(error),
           onSuccess: () => resolve(),
         });
-        upload.findPreviousUploads()
-          .then((previousUploads) => {
-            if (previousUploads.length > 0) {
-              upload.resumeFromPreviousUpload(previousUploads[0]);
-            }
-            upload.start();
-          })
-          .catch(reject);
+        // Retries are handled by tus-js-client for transient network failures.
+        // A new UI attempt must create a fresh signed upload resource.
+        upload.start();
       });
 
       setUploadProgress(85);
