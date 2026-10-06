@@ -688,24 +688,6 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               </div>
               <div className="flex justify-between text-[11px] font-mono text-zinc-500"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
             </div>
-
-            {/* Scrubber / Progress Bar */}
-            <div className="space-y-1.5">
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                step={0.1}
-                value={currentTime}
-                onChange={(e) => handleSeek(Number(e.target.value))}
-                className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <div className="flex justify-between text-[11px] font-mono text-zinc-500">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-            </div>
-
             {audioError && (
               <p className="text-xs text-red-400 bg-red-950/40 p-2.5 rounded-xl border border-red-900/50">
                 {audioError}
