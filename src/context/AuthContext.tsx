@@ -377,7 +377,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string): Promise<{ error: Error | null }> => {
     const supabase = getSupabase();
     try {
-      const redirectTo = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://mixflow-ngsw.onrender.com/';
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin + window.location.pathname + '?reset=1' : 'https://mixflow-ngsw.onrender.com/?reset=1';
       const request = supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
       const result = await Promise.race([
         request,
