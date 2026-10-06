@@ -361,7 +361,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPendingConfirmationEmail(null);
         setUser(data.user);
         setSession(data.session);
-        await loadUserEntities(data.user.id);
+        // Let the authenticated UI open immediately; hydrate workspace data in the background.
+        void loadUserEntities(data.user.id);
       }
 
       return { error: null, diagnostic: null };
@@ -448,7 +449,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPendingConfirmationEmail(null);
         setUser(newUser);
         setSession(authData.session);
-        await loadUserEntities(newUser.id);
+        // Do not make signup wait for workspace provisioning to finish.
+        void loadUserEntities(newUser.id);
         return { error: null, diagnostic: null };
       } else {
         // Requirement 4: If email confirmation is enabled and signUp() returns a user but no active session,
