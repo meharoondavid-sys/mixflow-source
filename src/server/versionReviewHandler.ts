@@ -222,7 +222,7 @@ export async function handleRequestVersionUploadUrl(
 
   const { data: project, error: projErr } = await adminClient
     .from('projects')
-    .select('id, organization_id')
+    .select('id, organization_id, client_id')
     .eq('id', projectId)
     .maybeSingle();
 
