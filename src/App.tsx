@@ -8,6 +8,7 @@ import { AuthScreen } from './components/auth/AuthScreen';
 import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal';
 import { downloadProjectSourceZip } from './utils/exportSourceZip';
 import { MobileProjectFileUploadView } from './components/engineer/MobileProjectFileUploadView';
+import { ClientAudioReviewView } from './components/client/ClientAudioReviewView';
 
 // Modals
 const DashboardView = lazy(() => import('./components/engineer/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -57,7 +58,7 @@ const AppContent: React.FC = () => {
   // are routed to the Engineer/Studio Console after authentication if the browser remained on #/client.
   // Public review links (#/review/...) and genuine client users are strictly preserved.
   useEffect(() => {
-    if (!loading && user && isStudioStaff) {
+    if (!loading && user && isStudioStaff && !isPreviewMode) {
       const hash = window.location.hash;
       // Do NOT interfere with public review links (#/review/...)
       if (hash.startsWith('#/review/')) {
@@ -91,7 +92,7 @@ const AppContent: React.FC = () => {
         // Studio staff should always stay in the Engineer Console when using
         // normal client routes. Client review links remain explicitly supported
         // through #/review/... above.
-        if (isStudioStaff) {
+        if (isStudioStaff && !isPreviewMode) {
           setCurrentView('engineer');
           setActiveProjectId(null);
           setEngineerTab('projects');
@@ -206,7 +207,9 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-emerald-500 selection:text-black pb-16">
       {/* 1. Client View: Either share review link or authenticated Client Portal */}
       {currentView === 'client' ? (
-        window.location.hash.startsWith('#/review/') ? (
+        isPreviewMode ? (
+          <ClientAudioReviewView projectId="preview-demo-project" songs={[{ id: 'preview-demo-song', title: 'Demo Song — Client Review Preview', track_number: 1 }]} />
+        ) : window.location.hash.startsWith('#/review/') ? (
           <ClientReviewView />
         ) : !user || isPasswordRecovery ? (
           <AuthScreen />
