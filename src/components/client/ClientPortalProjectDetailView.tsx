@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   ArrowLeft, 
   Music, 
@@ -12,7 +12,10 @@ import {
   FileAudio, 
   FileCode, 
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  Upload,
+  X,
+  AlertCircle
 } from 'lucide-react';
 import { ClientPortalProjectDetail } from '../../types/clientPortal';
 import { ClientAudioReviewView } from './ClientAudioReviewView';
@@ -26,6 +29,9 @@ interface ClientPortalProjectDetailViewProps {
   downloadingFileId: string | null;
   onBack: () => void;
   onDownloadFile: (fileId: string, fileName: string) => void;
+  onUploadFile: (file: File, songId?: string | null) => Promise<{ error: Error | null }>;
+  uploadProgress: number | null;
+  isUploading: boolean;
 }
 
 export const ClientPortalProjectDetailView: React.FC<ClientPortalProjectDetailViewProps> = ({
@@ -35,7 +41,14 @@ export const ClientPortalProjectDetailView: React.FC<ClientPortalProjectDetailVi
   downloadingFileId,
   onBack,
   onDownloadFile,
+  onUploadFile,
+  uploadProgress,
+  isUploading,
 }) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadSongId, setUploadSongId] = useState('');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Format File Size
   const formatFileSize = (bytes: number): string => {
     if (!bytes || bytes === 0) return '0 B';
@@ -284,6 +297,103 @@ export const ClientPortalProjectDetailView: React.FC<ClientPortalProjectDetailVi
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Client → Studio File Transfer */}
+      <div className="bg-zinc-900/40 border border-emerald-500/20 rounded-3xl p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <Upload size={16} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white">Send Files to Studio</h2>
+              <p className="text-[11px] text-zinc-500">Upload stems, references, recordings, or project assets for your engineer.</p>
+            </div>
+          </div>
+          <span className="text-[10px] uppercase tracking-wider font-mono text-emerald-400">Client Files</span>
+        </div>
+
+        {uploadError && (
+          <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-start gap-2">
+            <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-400" />
+            <span>{uploadError}</span>
+          </div>
+        )}
+
+        {isUploading && (
+          <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-emerald-300 font-semibold">Uploading to your studio...</span>
+              <span className="font-mono text-emerald-400 font-bold">{uploadProgress ?? 0}%</span>
+            </div>
+            <div className="h-2 bg-zinc-950 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-400 transition-all duration-300" style={{ width: String(uploadProgress ?? 0) + '%' }} />
+            </div>
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0] || null;
+            setSelectedFile(file);
+            setUploadError(null);
+          }}
+        />
+
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <button
+            type="button"
+            disabled={isUploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-950 border border-zinc-800 hover:border-emerald-500/40 text-zinc-200 rounded-xl text-xs font-semibold disabled:opacity-50 cursor-pointer"
+          >
+            <Upload size={14} className="text-emerald-400" />
+            <span>{selectedFile ? selectedFile.name : 'Choose File'}</span>
+          </button>
+          <select
+            value={uploadSongId}
+            onChange={(e) => setUploadSongId(e.target.value)}
+            disabled={isUploading}
+            className="sm:w-56 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-zinc-300 disabled:opacity-50"
+          >
+            <option value="">General Project File</option>
+            {project.songs.map((song) => (
+              <option key={song.id} value={song.id}>Track {song.track_number}: {song.title}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!selectedFile || isUploading}
+            onClick={async () => {
+              if (!selectedFile) return;
+              setUploadError(null);
+              const result = await onUploadFile(selectedFile, uploadSongId || null);
+              if (result.error) {
+                setUploadError(result.error.message);
+              } else {
+                setSelectedFile(null);
+                setUploadSongId('');
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }
+            }}
+            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-bold disabled:opacity-50 cursor-pointer"
+          >
+            {isUploading ? 'Uploading…' : 'Send to Studio'}
+          </button>
+        </div>
+
+        {selectedFile && !isUploading && (
+          <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500">
+            <span className="truncate">{(selectedFile.size / 1024 / 1024).toFixed(1)} MB selected</span>
+            <button type="button" onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="text-zinc-500 hover:text-white cursor-pointer">
+              <X size={13} />
+            </button>
           </div>
         )}
       </div>
