@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getSupabase } from '../lib/supabase';
 import { useAuth from '../context/AuthContext';
 import { ProjectFileRecord } from '../types/file';
-import { getSupabase } from '../lib/supabase';
+import { Upload } from 'tus-js-client';
 
 export function useProjectFiles(projectId?: string | null) {
   const { session, organization, role } = useAuth();
@@ -103,7 +103,6 @@ export function useProjectFiles(projectId?: string | null) {
         throw new Error('Large file upload could not be prepared securely.');
       }
 
-      const { Upload } = await import('tus-js-client');
       const projectRef = new URL(getSupabase().supabaseUrl).hostname.split('.')[0];
       const resumableEndpoint = `https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`;
 
