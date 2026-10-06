@@ -39,7 +39,6 @@ export const AuthScreen: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isDeveloperPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,28 +263,7 @@ export const AuthScreen: React.FC = () => {
                     <div className="leading-relaxed font-medium">{formError}</div>
                   </div>
 
-                  {isDeveloperPreview && formDiagnostic && (
-                    <div className="mt-2 pt-2 border-t border-zinc-800 text-[11px] font-mono text-zinc-400 space-y-1 bg-black/40 rounded-lg p-2.5">
-                      <div className="text-red-300 font-semibold flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <Bug size={12} className="text-red-400" />
-                          <span>Operation: {formDiagnostic.operation}</span>
-                        </span>
-                        {formDiagnostic.code && (
-                          <span className="px-1.5 py-0.5 rounded bg-red-950 text-red-200 border border-red-800 text-[10px]">
-                            Code: {formDiagnostic.code}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-zinc-400 break-all">Message: {formDiagnostic.message}</div>
-                      {formDiagnostic.hint && (
-                        <div className="text-amber-300/90 font-sans text-[11px] pt-0.5">💡 Hint: {formDiagnostic.hint}</div>
-                      )}
-                      {formDiagnostic.details && (
-                        <div className="text-zinc-500 text-[10px]">Details: {formDiagnostic.details}</div>
-                      )}
-                    </div>
-                  )}
+}
 
                   {mode === 'signin' && (
                     <div className="mt-3 pt-3 border-t border-red-500/20 space-y-2">
