@@ -325,7 +325,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen to Supabase auth state transitions
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
+      (_event, newSession) => {
         if (!isMounted) return;
 
         setSession(newSession);
@@ -334,7 +334,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (newSession?.user) {
           // Never hold the auth UI hostage to secondary workspace queries.
           setLoading(false);
-          void loadUserEntities(newSession.user.id);
+          window.setTimeout(() => { void loadUserEntities(newSession.user.id); }, 0);
         } else {
           setProfile(null);
           setOrganization(null);
@@ -365,13 +365,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: new Error(formatAuthError(error)), diagnostic: diag };
       }
 
-      if (data.user) {
-        setPendingConfirmationEmail(null);
-        setUser(data.user);
-        setSession(data.session);
-        // Let the authenticated UI open immediately; hydrate workspace data in the background.
-        void loadUserEntities(data.user.id);
+      if (!data.user || !data.session) {
+        return { error: new Error('Your credentials were accepted, but MixFlow could not create a secure session. Please try again.'), diagnostic: { operation: 'supabase.auth.signIn', message: 'No active session returned after sign in.', code: 'NO_ACTIVE_SESSION' } };
       }
+
+      const { data: verifiedSession, error: verifyError } = await supabase.auth.getSession();
+      if (verifyError || !verifiedSession.session?.user) {
+        return { error: new Error('Login completed, but MixFlow could not restore your secure session. Please try again.'), diagnostic: { operation: 'supabase.auth.getSession', message: verifyError?.message || 'No authenticated session available.', code: verifyError?.code || 'SESSION_NOT_AVAILABLE' } };
+      }
+
+      setPendingConfirmationEmail(null);
+      setUser(data.user);
+      setSession(verifiedSession.session);
+      void loadUserEntities(data.user.id);
 
       return { error: null, diagnostic: null };
     } catch (err: unknown) {
