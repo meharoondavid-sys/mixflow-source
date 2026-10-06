@@ -263,8 +263,6 @@ export const AuthScreen: React.FC = () => {
                     <div className="leading-relaxed font-medium">{formError}</div>
                   </div>
 
-}
-
                   {mode === 'signin' && (
                     <div className="mt-3 pt-3 border-t border-red-500/20 space-y-2">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
