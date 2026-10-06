@@ -41,6 +41,12 @@ import {
   handleMarkNotificationRead,
   handleMarkAllNotificationsRead,
 } from './src/server/notificationsHandler.js';
+import {
+  handleCreateCollaboratorInvite,
+  handleListCollaboratorInvites,
+  handleRevokeCollaboratorInvite,
+  handleAcceptCollaboratorInvite,
+} from './src/server/collaboratorHandler.js';
 
 dotenv.config({ override: true });
 
@@ -52,6 +58,62 @@ async function startServer() {
 
   // Middleware
   app.use(express.json());
+
+  // Step 16: project-scoped collaborator invites
+  const collaboratorContext = (req: express.Request) => ({
+    authHeader: req.headers.authorization,
+    projectId: req.params.projectId,
+    body: req.body,
+    supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  });
+
+  app.post('/api/projects/:projectId/collaborators/invites', async (req, res) => {
+    try {
+      const result = await handleCreateCollaboratorInvite(collaboratorContext(req));
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Collaborator invite create error:', err);
+      return res.status(500).json({ error: 'Failed to create collaborator invite.' });
+    }
+  });
+
+  app.get('/api/projects/:projectId/collaborators/invites', async (req, res) => {
+    try {
+      const result = await handleListCollaboratorInvites(collaboratorContext(req));
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Collaborator invite list error:', err);
+      return res.status(500).json({ error: 'Failed to list collaborator invites.' });
+    }
+  });
+
+  app.post('/api/projects/:projectId/collaborators/invites/revoke', async (req, res) => {
+    try {
+      const result = await handleRevokeCollaboratorInvite(collaboratorContext(req));
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Collaborator invite revoke error:', err);
+      return res.status(500).json({ error: 'Failed to revoke collaborator invite.' });
+    }
+  });
+
+  app.post('/api/collaborators/invites/accept', async (req, res) => {
+    try {
+      const result = await handleAcceptCollaboratorInvite({
+        authHeader: req.headers.authorization,
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Collaborator invite accept error:', err);
+      return res.status(500).json({ error: 'Failed to accept collaborator invite.' });
+    }
+  });
 
   // Health check endpoint
   app.get('/api/health', (_req, res) => {
