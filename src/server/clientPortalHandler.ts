@@ -52,7 +52,8 @@ async function authenticateCaller(ctx: ClientPortalHandlerContext) {
 async function getAssociatedClients(
   adminClient: any,
   userId: string,
-  userEmail?: string | null
+  userEmail?: string | null,
+  emailConfirmed = false
 ): Promise<any[]> {
   // 1. Direct match by user_id
   const { data: directClients } = await adminClient
@@ -64,8 +65,10 @@ async function getAssociatedClients(
     return directClients;
   }
 
-  // 2. Link by verified email if client record exists without user_id
-  if (userEmail) {
+  // 2. Only link an unassigned client by email when Supabase Auth confirms
+  // the caller owns that email address. Never infer identity from an
+  // unverified auth email.
+  if (userEmail && emailConfirmed) {
     const { data: emailClients } = await adminClient
       .from('clients')
       .select('*')
@@ -107,7 +110,12 @@ export async function handleGetClientPortalMe(
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const clients = await getAssociatedClients(adminClient, callerUser.id, callerUser.email);
+  const clients = await getAssociatedClients(
+    adminClient,
+    callerUser.id,
+    callerUser.email,
+    callerUser.email_confirmed_at != null
+  );
   if (!clients || clients.length === 0) {
     return {
       status: 200,
@@ -155,7 +163,12 @@ export async function handleGetClientPortalProjects(
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const clients = await getAssociatedClients(adminClient, callerUser.id, callerUser.email);
+  const clients = await getAssociatedClients(
+    adminClient,
+    callerUser.id,
+    callerUser.email,
+    callerUser.email_confirmed_at != null
+  );
   if (!clients || clients.length === 0) {
     return { status: 200, body: { projects: [] } };
   }
@@ -238,7 +251,12 @@ export async function handleGetClientPortalProjectDetail(
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const clients = await getAssociatedClients(adminClient, callerUser.id, callerUser.email);
+  const clients = await getAssociatedClients(
+    adminClient,
+    callerUser.id,
+    callerUser.email,
+    callerUser.email_confirmed_at != null
+  );
   if (!clients || clients.length === 0) {
     return { status: 403, body: { error: 'Forbidden: No client profile associated with this account.' } };
   }
@@ -342,7 +360,12 @@ export async function handleGetClientPortalFileDownloadUrl(
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const clients = await getAssociatedClients(adminClient, callerUser.id, callerUser.email);
+  const clients = await getAssociatedClients(
+    adminClient,
+    callerUser.id,
+    callerUser.email,
+    callerUser.email_confirmed_at != null
+  );
   if (!clients || clients.length === 0) {
     return { status: 403, body: { error: 'Forbidden: No client profile associated with this account.' } };
   }
