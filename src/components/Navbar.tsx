@@ -145,6 +145,7 @@ export const Navbar: React.FC = () => {
             </button>
             <button
               onClick={() => {
+                setCurrentView('engineer');
                 setActiveProjectId(null);
                 setEngineerTab('clients');
                 window.location.hash = '#/clients';
@@ -350,6 +351,7 @@ export const Navbar: React.FC = () => {
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
+                          setCurrentView('engineer');
                           setActiveProjectId(null);
                           setEngineerTab('clients');
                           window.location.hash = '#/clients';
