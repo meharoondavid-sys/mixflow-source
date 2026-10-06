@@ -22,6 +22,8 @@ export const AuthScreen: React.FC = () => {
   const { 
     signIn, 
     signUp, 
+    resetPassword,
+    updatePassword, 
     isConfigured, 
     setAnonKeyManually, 
     pendingConfirmationEmail, 
@@ -257,12 +259,18 @@ export const AuthScreen: React.FC = () => {
                     setFormError(null); setSuccessNotice(null);
                     if (mode === 'forgot') {
                       if (!email.trim()) { setFormError('Please enter your email address.'); return; }
-                      setIsSubmitting(true); const res = await resetPassword(email.trim()); setIsSubmitting(false);
-                      if (res.error) setFormError(res.error.message); else setSuccessNotice('Password reset email sent. Check your inbox and spam folder.');
+                      setIsSubmitting(true);
+                      try {
+                        const res = await resetPassword(email.trim());
+                        if (res.error) setFormError(res.error.message); else setSuccessNotice('Password reset email sent. Check your inbox and spam folder.');
+                      } catch { setFormError('We could not send the reset email. Please try again.'); }
+                      finally { setIsSubmitting(false); }
                     } else {
                       if (password.length < 6) { setFormError('Password must be at least 6 characters.'); return; }
                       setIsSubmitting(true); const res = await updatePassword(password); setIsSubmitting(false);
                       if (res.error) setFormError(res.error.message); else { setSuccessNotice('Password updated successfully.'); window.location.hash = ''; setMode('signin'); setPassword(''); }
+                      } catch { setFormError('We could not update your password. Please try again.'); }
+                      finally { setIsSubmitting(false); }
                     }
                   }} className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-50">
                     {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={14} />}
@@ -306,14 +314,14 @@ export const AuthScreen: React.FC = () => {
 
               {/* Error Banner with Actionable Diagnostics */}
               {formError && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3.5 space-y-2 text-xs text-red-400 animate-in fade-in duration-150">
+                <div className="bg-zinc-950 border border-zinc-700 rounded-xl p-3.5 space-y-2 text-xs text-zinc-300 animate-in fade-in duration-150">
                   <div className="flex items-start gap-2.5">
                     <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-400" />
                     <div className="leading-relaxed font-medium">{formError}</div>
                   </div>
 
                   {formDiagnostic && (
-                    <div className="mt-2 pt-2 border-t border-red-500/20 text-[11px] font-mono text-zinc-300 space-y-1 bg-black/40 rounded-lg p-2.5">
+                    <div className="mt-2 pt-2 border-t border-zinc-800 text-[11px] font-mono text-zinc-400 space-y-1 bg-black/40 rounded-lg p-2.5">
                       <div className="text-red-300 font-semibold flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
                           <Bug size={12} className="text-red-400" />
