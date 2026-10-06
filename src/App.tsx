@@ -1,26 +1,25 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { Download, Disc3 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectsProvider } from './context/ProjectsContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
-import { DashboardView } from './components/engineer/DashboardView';
-import { ProjectWorkspace } from './components/engineer/ProjectWorkspace';
-import { ProjectOverviewView } from './components/engineer/ProjectOverviewView';
-import { ClientsView } from './components/engineer/ClientsView';
-import { InvoicesView } from './components/engineer/InvoicesView';
-import { SettingsView } from './components/engineer/SettingsView';
-import { ClientReviewView } from './components/client/ClientReviewView';
-import { ClientPortal } from './components/client/ClientPortal';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal';
 import { downloadProjectSourceZip } from './utils/exportSourceZip';
 
 // Modals
-import { NewProjectModal } from './components/modals/NewProjectModal';
-import { UploadMixModal } from './components/modals/UploadMixModal';
-import { PaymentModal } from './components/modals/PaymentModal';
-import { InvoiceModal } from './components/modals/InvoiceModal';
+const DashboardView = lazy(() => import('./components/engineer/DashboardView').then(m => ({ default: m.DashboardView })));
+const ProjectOverviewView = lazy(() => import('./components/engineer/ProjectOverviewView').then(m => ({ default: m.ProjectOverviewView })));
+const ClientsView = lazy(() => import('./components/engineer/ClientsView').then(m => ({ default: m.ClientsView })));
+const InvoicesView = lazy(() => import('./components/engineer/InvoicesView').then(m => ({ default: m.InvoicesView })));
+const SettingsView = lazy(() => import('./components/engineer/SettingsView').then(m => ({ default: m.SettingsView })));
+const ClientReviewView = lazy(() => import('./components/client/ClientReviewView').then(m => ({ default: m.ClientReviewView })));
+const ClientPortal = lazy(() => import('./components/client/ClientPortal').then(m => ({ default: m.ClientPortal })));
+const NewProjectModal = lazy(() => import('./components/modals/NewProjectModal').then(m => ({ default: m.NewProjectModal })));
+const UploadMixModal = lazy(() => import('./components/modals/UploadMixModal').then(m => ({ default: m.UploadMixModal })));
+const PaymentModal = lazy(() => import('./components/modals/PaymentModal').then(m => ({ default: m.PaymentModal })));
+const InvoiceModal = lazy(() => import('./components/modals/InvoiceModal').then(m => ({ default: m.InvoiceModal })));
 
 const AppContent: React.FC = () => {
   const { 
@@ -121,14 +120,21 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHash);
   }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId]);
 
-  // Loading state while verifying or restoring Supabase session
+  // Auth should never leave the user on an indefinite blank/loading screen.
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-zinc-100 font-sans">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3 shadow-lg shadow-emerald-500/10">
-          <Disc3 size={24} className="animate-spin-slow" />
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-zinc-100 font-sans">
+        <div className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-900/80 p-7 text-center shadow-2xl">
+          <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <Disc3 size={24} className="animate-spin" />
+          </div>
+          <h1 className="text-base font-semibold text-white">Opening MixFlow</h1>
+          <p className="mt-1 text-xs text-zinc-400">Restoring your secure session…</p>
+          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+            <div className="h-full w-1/3 rounded-full bg-emerald-400 animate-pulse" />
+          </div>
+          <p className="mt-3 text-[11px] text-zinc-500">This should only take a moment.</p>
         </div>
-        <p className="text-xs text-zinc-400 font-mono tracking-wider">CONNECTING TO MIXFLOW SUPABASE...</p>
       </div>
     );
   }
@@ -177,6 +183,15 @@ const AppContent: React.FC = () => {
   }
 
   return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-zinc-100 font-sans">
+        <div className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-900/80 p-7 text-center shadow-2xl">
+          <div className="mx-auto mb-4 w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400"><Disc3 size={20} className="animate-spin" /></div>
+          <p className="text-sm font-medium text-white">Loading your workspace</p>
+          <p className="mt-1 text-xs text-zinc-500">Getting the next screen ready…</p>
+        </div>
+      </div>
+    }>
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-emerald-500 selection:text-black pb-16">
       {/* 1. Client View: Either share review link or authenticated Client Portal */}
       {currentView === 'client' ? (
@@ -283,6 +298,7 @@ const AppContent: React.FC = () => {
       <PaymentModal />
       <InvoiceModal />
     </div>
+    </Suspense>
   );
 };
 
