@@ -387,17 +387,6 @@ export const AuthScreen: React.FC = () => {
               )}
             </button>
 
-            {/* Instant Demo Login Button */}
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => signInAsDemo(email || 'alex@sonichorizon.audio', fullName || 'Alex Rivera', 'owner')}
-                className="w-full py-2.5 bg-zinc-950 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
-              >
-                <Headphones size={14} className="text-emerald-400" />
-                <span>⚡ Instant Studio Demo (Sign In as Lead Engineer)</span>
-              </button>
-            </div>
           </form>
 
           </>
