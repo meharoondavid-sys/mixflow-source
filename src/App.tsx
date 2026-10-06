@@ -180,13 +180,13 @@ const AppContent: React.FC = () => {
       {currentView === 'client' ? (
         window.location.hash.startsWith('#/review/') ? (
           <ClientReviewView />
-        ) : !user ? (
+        ) : !user || isPasswordRecovery ? (
           <AuthScreen />
         ) : (
           <ClientPortal />
         )
-      ) : !user ? (
-        /* 2. Unauthenticated Engineer: Supabase Login / Signup Screen */
+      ) : !user || isPasswordRecovery ? (
+        /* 2. Unauthenticated Engineer / Password Recovery */
         <AuthScreen />
       ) : (
         /* 3. Authenticated Engineer: Full Studio Console (Organization & Owner role confirmed) */
