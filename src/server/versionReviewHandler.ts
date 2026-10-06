@@ -344,6 +344,11 @@ export async function handleConfirmVersionUpload(
     return { status: 400, body: { error: 'Security violation: Storage path does not match project scope.' } };
   }
 
+  const expectedVersionPrefix = expectedPrefix + body.versionId + '_';
+  if (!body.storagePath.startsWith(expectedVersionPrefix)) {
+    return { status: 400, body: { error: 'Security violation: Storage path does not match the version ID.' } };
+  }
+
   // If songId provided, verify it belongs to this project
   if (body.songId) {
     const { data: song } = await adminClient
