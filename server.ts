@@ -42,6 +42,12 @@ import {
   handleMarkAllNotificationsRead,
 } from './src/server/notificationsHandler.js';
 import {
+  handleListCollaboratorInvites,
+  handleCreateCollaboratorInvite,
+  handleRevokeCollaboratorInvite,
+  handleRedeemCollaboratorInvite,
+} from './src/server/projectCollaboratorHandler.js';
+import {
   handleCreateCollaboratorInvite,
   handleListCollaboratorInvites,
   handleRevokeCollaboratorInvite,
@@ -204,6 +210,73 @@ async function startServer() {
       return res.status(500).json({
         error: 'An unexpected internal error occurred while revoking the invitation.',
       });
+    }
+  });
+
+  
+  // Project Collaborator Invites (Step 16)
+  app.get('/api/projects/:projectId/collaborators/invites', async (req, res) => {
+    try {
+      const result = await handleListCollaboratorInvites({
+        authHeader: req.headers.authorization,
+        projectId: req.params.projectId,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] collaborator invite list error:', err);
+      return res.status(500).json({ error: 'Failed to load collaborator invites.' });
+    }
+  });
+
+  app.post('/api/projects/:projectId/collaborators/invites', async (req, res) => {
+    try {
+      const result = await handleCreateCollaboratorInvite({
+        authHeader: req.headers.authorization,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] collaborator invite create error:', err);
+      return res.status(500).json({ error: 'Failed to create collaborator invite.' });
+    }
+  });
+
+  app.post('/api/projects/:projectId/collaborators/invites/revoke', async (req, res) => {
+    try {
+      const result = await handleRevokeCollaboratorInvite({
+        authHeader: req.headers.authorization,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] collaborator invite revoke error:', err);
+      return res.status(500).json({ error: 'Failed to revoke collaborator invite.' });
+    }
+  });
+
+  app.post('/api/collaborators/redeem', async (req, res) => {
+    try {
+      const result = await handleRedeemCollaboratorInvite({
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] collaborator redeem error:', err);
+      return res.status(500).json({ error: 'Failed to redeem collaborator invite.' });
     }
   });
 
