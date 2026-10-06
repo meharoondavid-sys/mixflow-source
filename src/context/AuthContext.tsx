@@ -378,7 +378,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const supabase = getSupabase();
     try {
       const redirectTo = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://mixflow-ngsw.onrender.com/';
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      const request = supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      const result = await Promise.race([
+        request,
+        new Promise<{ error: any }>((resolve) => setTimeout(() => resolve({ error: new Error('Password reset request timed out. Please check your connection and try again.') }), 15000)),
+      ]);
+      const error = result.error;
       return { error: error ? new Error(formatAuthError(error)) : null };
     } catch (err: unknown) {
       return { error: err instanceof Error ? err : new Error('Unable to send password reset email. Please try again.') };
@@ -388,7 +393,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updatePassword = async (password: string): Promise<{ error: Error | null }> => {
     const supabase = getSupabase();
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const request = supabase.auth.updateUser({ password });
+      const result = await Promise.race([
+        request,
+        new Promise<{ error: any }>((resolve) => setTimeout(() => resolve({ error: new Error('Password update timed out. Please check your connection and try again.') }), 15000)),
+      ]);
+      const error = result.error;
       return { error: error ? new Error(formatAuthError(error)) : null };
     } catch (err: unknown) {
       return { error: err instanceof Error ? err : new Error('Unable to update your password. Please try again.') };
