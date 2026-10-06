@@ -147,10 +147,12 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
   });
 
   const handleOpenUpload = (preselectedSongId?: string) => {
-    setSelectedUploadFile(null);
-    setUploadSongId(preselectedSongId || '');
-    setModalError(null);
-    setIsUploadModalOpen(true);
+    // Open a dedicated lightweight page before Android launches the native
+    // file picker. This keeps the full engineer project screen out of memory.
+    const params = preselectedSongId
+      ? `?songId=${encodeURIComponent(preselectedSongId)}`
+      : '';
+    window.location.href = `/#/mobile-upload/${encodeURIComponent(projectId)}${params}`;
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
