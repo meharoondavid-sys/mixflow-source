@@ -510,63 +510,6 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
         </div>
       </div>
 
-      {/* Quantitative Metric Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Price */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
-          <span className="text-xs text-zinc-400 block">Project Price</span>
-          <div className="text-2xl font-bold font-mono text-white tabular-nums">
-            ${project.project_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <span className="text-[10px] text-zinc-500 font-mono">Agreed scope</span>
-        </div>
-
-        {/* Deposit Paid */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
-          <span className="text-xs text-zinc-400 block">Deposit Amount</span>
-          <div className="text-2xl font-bold font-mono text-emerald-400 tabular-nums">
-            ${project.deposit_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <span className="text-[10px] text-zinc-500 font-mono">Initial retainer</span>
-        </div>
-
-        {/* Balance Remaining */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
-          <span className="text-xs text-zinc-400 block">Remaining Balance</span>
-          <div
-            className={`text-2xl font-bold font-mono tabular-nums ${
-              paymentSummary.is_overpaid
-                ? 'text-purple-400'
-                : balance === 0
-                ? 'text-emerald-400'
-                : 'text-amber-400'
-            }`}
-          >
-            {paymentSummary.is_overpaid
-              ? `-$${paymentSummary.overpaid_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          </div>
-          <span className="text-[10px] text-zinc-500 font-mono">
-            {paymentSummary.is_overpaid
-              ? 'Credit overpayment'
-              : balance === 0
-              ? 'Paid in full'
-              : 'Due upon completion'}
-          </span>
-        </div>
-
-        {/* Deadline */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
-          <span className="text-xs text-zinc-400 block">Target Deadline</span>
-          <div className="text-lg font-bold font-mono text-zinc-200 mt-1">
-            {formatDate(project.deadline)}
-          </div>
-          <span className="text-[10px] text-zinc-500 font-mono">
-            Created {formatDate(project.created_at)}
-          </span>
-        </div>
-      </div>
-
           {/* Songs Tracklist Card */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -648,6 +591,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -683,6 +627,65 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
               </form>
             )}
           </div>
+
+
+      {/* Quantitative Metric Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Price */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
+          <span className="text-xs text-zinc-400 block">Project Price</span>
+          <div className="text-2xl font-bold font-mono text-white tabular-nums">
+            ${project.project_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <span className="text-[10px] text-zinc-500 font-mono">Agreed scope</span>
+        </div>
+
+        {/* Deposit Paid */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
+          <span className="text-xs text-zinc-400 block">Deposit Amount</span>
+          <div className="text-2xl font-bold font-mono text-emerald-400 tabular-nums">
+            ${project.deposit_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <span className="text-[10px] text-zinc-500 font-mono">Initial retainer</span>
+        </div>
+
+        {/* Balance Remaining */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
+          <span className="text-xs text-zinc-400 block">Remaining Balance</span>
+          <div
+            className={`text-2xl font-bold font-mono tabular-nums ${
+              paymentSummary.is_overpaid
+                ? 'text-purple-400'
+                : balance === 0
+                ? 'text-emerald-400'
+                : 'text-amber-400'
+            }`}
+          >
+            {paymentSummary.is_overpaid
+              ? `-$${paymentSummary.overpaid_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </div>
+          <span className="text-[10px] text-zinc-500 font-mono">
+            {paymentSummary.is_overpaid
+              ? 'Credit overpayment'
+              : balance === 0
+              ? 'Paid in full'
+              : 'Due upon completion'}
+          </span>
+        </div>
+
+        {/* Deadline */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
+          <span className="text-xs text-zinc-400 block">Target Deadline</span>
+          <div className="text-lg font-bold font-mono text-zinc-200 mt-1">
+            {formatDate(project.deadline)}
+          </div>
+          <span className="text-[10px] text-zinc-500 font-mono">
+            Created {formatDate(project.created_at)}
+          </span>
+        </div>
+      </div>
+
 
 
       {/* Main Content Grid: Description & Client Info vs Songs */}
