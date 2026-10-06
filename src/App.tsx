@@ -13,6 +13,7 @@ import { SettingsView } from './components/engineer/SettingsView';
 import { ClientReviewView } from './components/client/ClientReviewView';
 import { ClientPortal } from './components/client/ClientPortal';
 import { AuthScreen } from './components/auth/AuthScreen';
+import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal';
 import { downloadProjectSourceZip } from './utils/exportSourceZip';
 
 // Modals
@@ -41,6 +42,9 @@ const AppContent: React.FC = () => {
     setActiveClientToken,
     projects
   } = useApp();
+
+  const collaboratorMatch = window.location.hash.match(/^#\/collaborator\/invite\/([^/]+)$/);
+  const collaboratorToken = collaboratorMatch?.[1] || null;
 
   const isStudioStaff = Boolean(
     user && organization && role && ['owner', 'admin', 'engineer', 'producer', 'finance'].includes(role)
@@ -164,6 +168,10 @@ const AppContent: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  if (collaboratorToken) {
+    return <CollaboratorPortal token={collaboratorToken} />;
   }
 
   return (
