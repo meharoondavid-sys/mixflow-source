@@ -176,16 +176,16 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-6 my-8">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-none sm:rounded-3xl p-4 sm:p-8 max-w-xl w-full min-h-screen sm:min-h-0 shadow-2xl space-y-4 sm:space-y-6 sm:my-8">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
           <div>
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
               <Disc3 size={20} className="text-emerald-400" />
               <span>Create New Project</span>
             </h3>
-            <p className="text-xs text-zinc-400 mt-1">
+            <p className="text-[11px] sm:text-xs text-zinc-400 mt-1">
               Set up a production contract with tracklist and financial terms.
             </p>
           </div>
@@ -204,15 +204,15 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 text-xs">
           {/* 1. Project Type Selector */}
           <div>
             <label className="block text-zinc-300 font-medium mb-1.5">Project Type</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setProjectType('single')}
-                className={`py-2.5 px-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                className={`py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl border text-center transition-all flex flex-col items-center gap-0.5 sm:gap-1 cursor-pointer ${
                   projectType === 'single'
                     ? 'bg-emerald-500/10 border-emerald-500 text-white font-bold'
                     : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
@@ -339,7 +339,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
           </div>
 
           {/* Financials, Deadline & Status Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             <div>
               <label className="block text-zinc-300 font-medium mb-1">Project Price ($)</label>
               <div className="relative">
