@@ -49,6 +49,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
   } = useProjectFiles(projectId);
 
   const [selectedSongFilter, setSelectedSongFilter] = useState<string>('all');
+  const [selectedSourceFilter, setSelectedSourceFilter] = useState<'all' | 'client' | 'studio'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
@@ -116,6 +117,11 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
         ? !f.song_id
         : f.song_id === selectedSongFilter;
 
+    const matchesSource =
+      selectedSourceFilter === 'all' ||
+      (selectedSourceFilter === 'client' && f.uploader_role === 'client') ||
+      (selectedSourceFilter === 'studio' && f.uploader_role !== 'client');
+
     const q = searchQuery.toLowerCase().trim();
     const songTitle = getSongTitle(f.song_id)?.toLowerCase() || '';
     const uploader = (f.uploader_name || f.uploader_email || '').toLowerCase();
@@ -126,7 +132,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
       songTitle.includes(q) ||
       uploader.includes(q);
 
-    return matchesSong && matchesSearch;
+    return matchesSong && matchesSource && matchesSearch;
   });
 
   const handleOpenUpload = (preselectedSongId?: string) => {
@@ -255,6 +261,19 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
           />
         </div>
 
+        {/* File Source Filter */}
+        <div className="flex items-center gap-2 shrink-0">
+          <select
+            value={selectedSourceFilter}
+            onChange={(e) => setSelectedSourceFilter(e.target.value as 'all' | 'client' | 'studio')}
+            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
+          >
+            <option value="all">All Files</option>
+            <option value="client">Client Files ({files.filter((f) => f.uploader_role === 'client').length})</option>
+            <option value="studio">Studio Files ({files.filter((f) => f.uploader_role !== 'client').length})</option>
+          </select>
+        </div>
+
         {/* Song Filter */}
         <div className="flex items-center gap-2 shrink-0">
           <Filter size={13} className="text-zinc-500 hidden sm:inline" />
@@ -331,6 +350,12 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
                         {file.name}
                       </span>
 
+                      {file.uploader_role === 'client' && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shrink-0">
+                          From Client
+                        </span>
+                      )}
+
                       {songTitle ? (
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">
                           {songTitle}
@@ -354,7 +379,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
                       <span>·</span>
                       <span className="flex items-center gap-1 text-zinc-400">
                         <User size={11} />
-                        {file.uploader_name || file.uploader_email || 'Studio Member'}
+                        {file.uploader_name || file.uploader_email || (file.uploader_role === 'client' ? 'Client' : 'Studio Member')}
                       </span>
                     </div>
                   </div>
