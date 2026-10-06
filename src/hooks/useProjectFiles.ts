@@ -128,7 +128,14 @@ export function useProjectFiles(projectId?: string | null) {
           onError: (error) => reject(error),
           onSuccess: () => resolve(),
         });
-        upload.start();
+        upload.findPreviousUploads()
+          .then((previousUploads) => {
+            if (previousUploads.length > 0) {
+              upload.resumeFromPreviousUpload(previousUploads[0]);
+            }
+            upload.start();
+          })
+          .catch(reject);
       });
 
       setUploadProgress(85);
