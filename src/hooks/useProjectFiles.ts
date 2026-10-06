@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
+import { useAuth from '../context/AuthContext';
 import { ProjectFileRecord } from '../types/file';
+import { getSupabase } from '../lib/supabase';
 
 export function useProjectFiles(projectId?: string | null) {
   const { session, organization, role } = useAuth();
@@ -95,37 +96,41 @@ export function useProjectFiles(projectId?: string | null) {
       const { fileId, storagePath, signedUrl, token } = await urlRes.json();
       setUploadProgress(40);
 
-      // Step B: Upload file binary to Supabase Storage
-      const supabase = getSupabase();
-      let uploadSuccess = false;
-
-      // Prefer supabase storage client uploadToSignedUrl if token present
-      if (token) {
-        const { error: upErr } = await supabase.storage
-          .from('project-files')
-          .uploadToSignedUrl(storagePath, token, file);
-
-        if (!upErr) {
-          uploadSuccess = true;
-        } else {
-          console.warn('[MixFlow Storage] uploadToSignedUrl fallback to PUT:', upErr.message);
-        }
+      // Step B: Upload directly to Supabase Storage using resumable TUS chunks.
+      // Large audio files (such as 850MB WAVs) should not use the standard single-request
+      // upload path. Supabase recommends TUS for files larger than 6MB.
+      if (!token) {
+        throw new Error('Large file upload could not be prepared securely.');
       }
 
-      // Fallback: Direct PUT to signedUrl
-      if (!uploadSuccess && signedUrl) {
-        const putRes = await fetch(signedUrl, {
-          method: 'PUT',
+      const { Upload } = await import('tus-js-client');
+      const projectRef = new URL(getSupabase().supabaseUrl).hostname.split('.')[0];
+      const resumableEndpoint = `https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`;
+
+      await new Promise<void>((resolve, reject) => {
+        const upload = new Upload(file, {
+          endpoint: resumableEndpoint,
           headers: {
-            'Content-Type': file.type || 'application/octet-stream',
+            'x-signature': token,
           },
-          body: file,
+          metadata: {
+            bucketName: 'project-files',
+            objectName: storagePath,
+            contentType: file.type || 'application/octet-stream',
+          },
+          chunkSize: 6 * 1024 * 1024,
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          uploadDataDuringCreation: true,
+          removeFingerprintOnSuccess: true,
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const percent = Math.min(84, Math.max(1, Math.round((bytesUploaded / bytesTotal) * 84)));
+            setUploadProgress(percent);
+          },
+          onError: (error) => reject(error),
+          onSuccess: () => resolve(),
         });
-
-        if (!putRes.ok) {
-          throw new Error(`Upload to storage failed with status ${putRes.status}`);
-        }
-      }
+        upload.start();
+      });
 
       setUploadProgress(85);
 
