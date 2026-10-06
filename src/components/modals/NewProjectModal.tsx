@@ -20,7 +20,7 @@ import { useClients } from '../../hooks/useClients';
 import { useProjects } from '../../hooks/useProjects';
 import { useServices } from '../../hooks/useServices';
 import { useApp } from '../../context/AppContext';
-import { ProjectType, ProjectStatus, SongInput } from '../../types/project';
+import { ProjectType, SongInput } from '../../types/project';
 
 interface NewProjectModalProps {
   isOpen?: boolean;
@@ -56,7 +56,6 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const [price, setPrice] = useState<string>('');
   const [deposit, setDeposit] = useState<string>('');
   const [deadline, setDeadline] = useState('');
-  const [status, setStatus] = useState<ProjectStatus>('inquiry');
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
   // Single Song Title
@@ -155,7 +154,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
       project_price: priceNum,
       deposit_amount: depositNum,
       deadline: deadline || null,
-      status: status,
+      status: 'inquiry',
       songs: formattedSongs,
     });
 
@@ -383,22 +382,6 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
               />
             </div>
 
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">Initial Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-emerald-500"
-              >
-                <option value="inquiry">Inquiry</option>
-                <option value="awaiting_files">Awaiting Files</option>
-                <option value="in_production">In Production</option>
-                <option value="in_review">In Review</option>
-                <option value="needs_revision">Needs Revision</option>
-                <option value="approved">Approved</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
             </div>
           </div>
 
