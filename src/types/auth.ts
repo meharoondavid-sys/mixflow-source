@@ -60,6 +60,8 @@ export interface AuthContextType {
   provisioningError: string | null;
   isConfigured: boolean;
   pendingConfirmationEmail: string | null;
+  resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  updatePassword: (password: string) => Promise<{ error: Error | null }>;
   setPendingConfirmationEmail: (email: string | null) => void;
   setAnonKeyManually: (key: string) => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; diagnostic?: AuthDiagnosticError | null }>;
