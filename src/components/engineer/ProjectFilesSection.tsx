@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   FileText,
   Upload,
@@ -49,6 +49,17 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
   } = useProjectFiles(projectId);
 
   const [selectedSongFilter, setSelectedSongFilter] = useState<string>('all');
+
+  useEffect(() => {
+    const handleSongFileFilter = (event: Event) => {
+      const songId = (event as CustomEvent<{ songId?: string }>).detail?.songId;
+      if (!songId) return;
+      setSelectedSongFilter(songId);
+      setSelectedSourceFilter('all');
+    };
+    window.addEventListener('mixflow:project-file-filter', handleSongFileFilter);
+    return () => window.removeEventListener('mixflow:project-file-filter', handleSongFileFilter);
+  }, []);
   const [selectedSourceFilter, setSelectedSourceFilter] = useState<'all' | 'client' | 'studio'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -191,7 +202,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
   };
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-7 space-y-6 shadow-xl">
+    <div id="project-files-section" className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-7 space-y-6 shadow-xl">
       {/* Header & Upload Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
         <div className="space-y-1">
