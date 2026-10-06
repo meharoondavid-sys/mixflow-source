@@ -220,6 +220,31 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
         )}
       </div>
 
+      {/* Client file shortcut */}
+      {files.some((file) => file.uploader_role === 'client') && (
+        <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <Upload size={16} className="text-emerald-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-white">Client Files</p>
+              <p className="text-[11px] text-zinc-500">
+                {files.filter((file) => file.uploader_role === 'client').length} file{files.filter((file) => file.uploader_role === 'client').length === 1 ? '' : 's'} sent by the client
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedSourceFilter('client')}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0"
+          >
+            <Download size={13} />
+            <span>View Client Files</span>
+          </button>
+        </div>
+      )}
+
       {/* Upload Progress Bar if active */}
       {isUploading && (
         <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-2 animate-pulse">
