@@ -525,11 +525,19 @@ export async function handleDeleteProjectFile(
     return { status: 403, body: { error: 'Security violation: File path mismatch.' } };
   }
 
-  // Remove from Supabase Storage
+  // Remove from Supabase Storage first. Do not silently ignore storage failures,
+  // otherwise the DB could claim the file is gone while the private object remains.
   try {
-    await adminClient.storage.from('project-files').remove([targetFile.storage_path]);
-  } catch (err: any) {
-    console.warn('[MixFlow Storage] Failed to remove storage object:', err?.message);
+    const { error: storageErr } = await adminClient.storage
+      .from('project-files')
+      .remove([targetFile.storage_path]);
+
+    if (storageErr) {
+      console.error('[MixFlow Storage] Failed to remove storage object:', storageErr);
+      return { status: 500, body: { error: 'Failed to delete file from storage.' } };
+    }
+  } catch (_err) {
+    return { status: 500, body: { error: 'Failed to delete file from storage.' } };
   }
 
   // Remove from public.project_files DB table
