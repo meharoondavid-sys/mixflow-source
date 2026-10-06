@@ -68,6 +68,18 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     return data.session?.access_token || null;
   };
 
+  // Load project status for the review workflow.
+  useEffect(() => {
+    let isCancelled = false;
+    const loadProjectStatus = async () => {
+      const sb = getSupabase();
+      const { data, error } = await sb.from('projects').select('status').eq('id', projectId).single();
+      if (!isCancelled && !error) setProjectStatus(data?.status || null);
+    };
+    loadProjectStatus();
+    return () => { isCancelled = true; };
+  }, [projectId]);
+
   // 1. Fetch versions when selectedSongId changes
   useEffect(() => {
     let isCancelled = false;
