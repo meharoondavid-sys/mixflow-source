@@ -130,7 +130,7 @@ export async function handleListProjectDeliveries(
     return { status: 403, body: { error: 'Forbidden. You do not have permission to view deliveries for this project.' } };
   }
 
-  // Query database
+  // Database is authoritative for delivery history.
   try {
     const { data, error } = await adminClient
       .from('project_deliveries')
@@ -138,18 +138,14 @@ export async function handleListProjectDeliveries(
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      return { status: 200, body: { deliveries: data } };
+    if (error) {
+      return { status: 500, body: { error: 'Failed to load project deliveries.' } };
     }
+
+    return { status: 200, body: { deliveries: data || [] } };
   } catch (_e) {
-    // Fallback to in-memory ledger
+    return { status: 500, body: { error: 'Failed to load project deliveries.' } };
   }
-
-  const memoryMatches = inMemoryDeliveries
-    .filter((d) => d.project_id === projectId)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-  return { status: 200, body: { deliveries: memoryMatches } };
 }
 
 /**
@@ -322,7 +318,7 @@ export async function handleCreateProjectDelivery(
     storage_path: version.storage_path,
   };
 
-  // Attempt database insertion
+  // Database is authoritative for final-delivery records.
   try {
     const { data: inserted, error: insertErr } = await adminClient
       .from('project_deliveries')
@@ -342,14 +338,13 @@ export async function handleCreateProjectDelivery(
       .select()
       .single();
 
-    if (!insertErr && inserted) {
-      deliveryRecord = {
-        ...deliveryRecord,
-        ...inserted,
-      };
+    if (insertErr || !inserted) {
+      return { status: 500, body: { error: 'Failed to release final deliverable.' } };
     }
+
+    deliveryRecord = { ...deliveryRecord, ...inserted };
   } catch (_e) {
-    // Fallback to in-memory ledger
+    return { status: 500, body: { error: 'Failed to release final deliverable.' } };
   }
 
   // Step 15 Notification: Notify client when final deliverable is released
@@ -451,7 +446,7 @@ export async function handleGetDeliveryDownloadUrl(
     return { status: 403, body: { error: 'Forbidden. You do not have permission to download deliverables for this project.' } };
   }
 
-  // Find delivery record (DB or in-memory)
+  // Database is authoritative for delivery records.
   let delivery: ProjectDeliveryRecord | null = null;
 
   try {
@@ -462,11 +457,13 @@ export async function handleGetDeliveryDownloadUrl(
       .eq('project_id', projectId)
       .maybeSingle();
 
-    if (!error && data) {
-      delivery = data as ProjectDeliveryRecord;
+    if (error) {
+      return { status: 500, body: { error: 'Failed to load final deliverable.' } };
     }
+
+    if (data) delivery = data as ProjectDeliveryRecord;
   } catch (_e) {
-    // Continue
+    return { status: 500, body: { error: 'Failed to load final deliverable.' } };
   }
 
   if (!delivery) {
@@ -477,30 +474,28 @@ export async function handleGetDeliveryDownloadUrl(
     return { status: 404, body: { error: 'Final deliverable record not found.' } };
   }
 
-  // Retrieve underlying version to get storage_path
+  // Retrieve underlying version to get storage_path.
   let storagePath: string | null = delivery.storage_path || null;
-  let fileType = delivery.file_type || 'audio/wav';
 
   if (!storagePath) {
     try {
-      const { data: version } = await adminClient
+      const { data: version, error: versionErr } = await adminClient
         .from('project_file_versions')
-        .select('storage_path, file_type')
+        .select('storage_path')
         .eq('id', delivery.version_id)
         .maybeSingle();
 
-      if (version?.storage_path) {
-        storagePath = version.storage_path;
-        fileType = version.file_type || fileType;
+      if (versionErr) {
+        return { status: 500, body: { error: 'Failed to load final file information.' } };
       }
+      storagePath = version?.storage_path || null;
     } catch (_e) {
-      // Continue
+      return { status: 500, body: { error: 'Failed to load final file information.' } };
     }
   }
 
-  // Fallback storage path if not yet populated
   if (!storagePath) {
-    storagePath = `${project.organization_id}/${projectId}/versions/${delivery.version_id}.wav`;
+    return { status: 500, body: { error: 'Final deliverable has no storage file.' } };
   }
 
   // Generate short-lived signed URL (60 seconds)
@@ -511,21 +506,16 @@ export async function handleGetDeliveryDownloadUrl(
     const { data: signedData, error: signErr } = await adminClient.storage
       .from('project-files')
       .createSignedUrl(storagePath, expiresInSeconds, {
-        download: `${delivery.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+        download: delivery.name.replace(/[^a-zA-Z0-9._-]/g, '_'),
       });
 
-    if (!signErr && signedData?.signedUrl) {
-      downloadUrl = signedData.signedUrl;
+    if (signErr || !signedData?.signedUrl) {
+      return { status: 500, body: { error: 'Failed to create secure download link.' } };
     }
-  } catch (_e) {
-    // Continue
-  }
 
-  if (!downloadUrl) {
-    // Deterministic secure download URL representation with HMAC expiration
-    downloadUrl = `${supabaseUrl}/storage/v1/object/sign/project-files/${encodeURIComponent(
-      storagePath
-    )}?token=secure_del_${Date.now()}&expires=${Math.floor(Date.now() / 1000) + expiresInSeconds}`;
+    downloadUrl = signedData.signedUrl;
+  } catch (_e) {
+    return { status: 500, body: { error: 'Failed to create secure download link.' } };
   }
 
   // Audit: If caller is assigned client and status was 'ready', update to 'delivered'
@@ -537,12 +527,16 @@ export async function handleGetDeliveryDownloadUrl(
 
     // Update in DB
     try {
-      await adminClient
+      const { error: updateErr } = await adminClient
         .from('project_deliveries')
         .update({ status: 'delivered', updated_at: delivery.updated_at })
         .eq('id', deliveryId);
+
+      if (updateErr) {
+        return { status: 500, body: { error: 'Failed to record delivery download.' } };
+      }
     } catch (_e) {
-      // Ignore
+      return { status: 500, body: { error: 'Failed to record delivery download.' } };
     }
 
     // Update in memory
