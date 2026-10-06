@@ -856,8 +856,8 @@ export async function handleUpdateFeedbackStatus(
     .eq('user_id', callerUser.id)
     .maybeSingle();
 
-  if (!membership) {
-    return { status: 403, body: { error: 'Forbidden: Studio membership required to update feedback status.' } };
+  if (!membership || !['owner', 'admin', 'engineer', 'producer'].includes(membership.role)) {
+    return { status: 403, body: { error: 'Forbidden: Your role cannot update feedback status.' } };
   }
 
   const isResolved = body.status === 'resolved';
