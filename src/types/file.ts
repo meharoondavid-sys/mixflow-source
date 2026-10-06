@@ -10,6 +10,7 @@ export interface ProjectFileRecord {
   uploaded_by: string;
   uploader_name?: string | null;
   uploader_email?: string | null;
+  uploader_role?: 'client' | 'studio';
   created_at: string;
   updated_at: string;
 }
