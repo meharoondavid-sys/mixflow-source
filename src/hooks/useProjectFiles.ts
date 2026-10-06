@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getSupabase } from '../lib/supabase';
+import { getSupabase, getSupabaseAnonKey } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { ProjectFileRecord } from '../types/file';
 
@@ -110,6 +110,7 @@ export function useProjectFiles(projectId?: string | null) {
         const upload = new Upload(file, {
           endpoint: resumableEndpoint,
           headers: {
+            apikey: getSupabaseAnonKey(),
             'x-signature': token,
           },
           metadata: {
