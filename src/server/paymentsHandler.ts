@@ -121,7 +121,7 @@ export async function handleListProjectPayments(
     return { status: 403, body: { error: 'Forbidden. You do not have permission to view payments for this project.' } };
   }
 
-  // Attempt database query
+  // Database is authoritative for payment history.
   try {
     const { data, error } = await adminClient
       .from('project_payments')
@@ -129,18 +129,14 @@ export async function handleListProjectPayments(
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      return { status: 200, body: { payments: data } };
+    if (error) {
+      return { status: 500, body: { error: 'Failed to load project payments.' } };
     }
+
+    return { status: 200, body: { payments: data || [] } };
   } catch (_e) {
-    // Fallback to in-memory ledger if table is not yet migrated in remote PostgREST
+    return { status: 500, body: { error: 'Failed to load project payments.' } };
   }
-
-  const memoryMatches = inMemoryPayments
-    .filter((p) => p.project_id === projectId)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-  return { status: 200, body: { payments: memoryMatches } };
 }
 
 /**
@@ -232,7 +228,7 @@ export async function handleCreateProjectPayment(
     updated_at: now,
   };
 
-  // Attempt database insertion
+  // Database is authoritative for financial records.
   try {
     const { data: inserted, error: insertErr } = await adminClient
       .from('project_payments')
@@ -250,11 +246,13 @@ export async function handleCreateProjectPayment(
       .select()
       .single();
 
-    if (!insertErr && inserted) {
-      paymentRecord = { ...paymentRecord, ...inserted };
+    if (insertErr || !inserted) {
+      return { status: 500, body: { error: 'Failed to record payment.' } };
     }
+
+    paymentRecord = { ...paymentRecord, ...inserted };
   } catch (_e) {
-    // Database table not provisioned or error; use in-memory ledger
+    return { status: 500, body: { error: 'Failed to record payment.' } };
   }
 
   // Step 15 Notification: Notify client when payment is recorded
