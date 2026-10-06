@@ -225,8 +225,55 @@ export const AuthScreen: React.FC = () => {
             </div>
           ) : (
             <>
+              {(mode === 'forgot' || mode === 'reset') && (
+                <div className="mb-4 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-5 space-y-4">
+                  <div className="text-center space-y-2">
+                    <div className="mx-auto w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                      <KeyRound size={20} />
+                    </div>
+                    <h3 className="text-base font-bold text-white">{mode === 'forgot' ? 'Reset your password' : 'Choose a new password'}</h3>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{mode === 'forgot' ? 'Enter your MixFlow email and we will send you a secure password reset link.' : 'Enter a new password for your MixFlow account.'}</p>
+                  </div>
+                  {mode === 'forgot' ? (
+                    <div>
+                      <label className="block text-zinc-300 font-medium mb-1">Email Address</label>
+                      <div className="relative">
+                        <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                        <input type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="engineer@studio.com" className="w-full pl-9 pr-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-zinc-300 font-medium mb-1">New Password</label>
+                      <div className="relative">
+                        <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                        <input type="password" autoFocus minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" className="w-full pl-9 pr-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500" />
+                      </div>
+                    </div>
+                  )}
+                  {formError && <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-400">{formError}</div>}
+                  {successNotice && <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-400">{successNotice}</div>}
+                  <button type="button" disabled={isSubmitting} onClick={async () => {
+                    setFormError(null); setSuccessNotice(null);
+                    if (mode === 'forgot') {
+                      if (!email.trim()) { setFormError('Please enter your email address.'); return; }
+                      setIsSubmitting(true); const res = await resetPassword(email.trim()); setIsSubmitting(false);
+                      if (res.error) setFormError(res.error.message); else setSuccessNotice('Password reset email sent. Check your inbox and spam folder.');
+                    } else {
+                      if (password.length < 6) { setFormError('Password must be at least 6 characters.'); return; }
+                      setIsSubmitting(true); const res = await updatePassword(password); setIsSubmitting(false);
+                      if (res.error) setFormError(res.error.message); else { setSuccessNotice('Password updated successfully.'); window.location.hash = ''; setMode('signin'); setPassword(''); }
+                    }
+                  }} className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-50">
+                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={14} />}
+                    <span>{mode === 'forgot' ? 'Send Reset Link' : 'Update Password'}</span>
+                  </button>
+                  <button type="button" onClick={() => { setMode('signin'); setFormError(null); setSuccessNotice(null); }} className="w-full text-xs text-zinc-400 hover:text-white py-2">← Back to Sign In</button>
+                </div>
+              )}
+
               {/* Mode Switcher Tabs */}
-              <div className="grid grid-cols-2 p-1 bg-zinc-950 border border-zinc-800 rounded-xl text-xs font-medium">
+              <div className={`grid grid-cols-2 p-1 bg-zinc-950 border border-zinc-800 rounded-xl text-xs font-medium ${mode === 'forgot' || mode === 'reset' ? 'hidden' : ''}`}>
                 <button
                   type="button"
                   onClick={() => {
@@ -326,7 +373,7 @@ export const AuthScreen: React.FC = () => {
               )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <form onSubmit={handleSubmit} className={`space-y-4 text-xs ${mode === 'forgot' || mode === 'reset' ? 'hidden' : ''}`}>
             {mode === 'signup' && (
               <>
                 <div>
