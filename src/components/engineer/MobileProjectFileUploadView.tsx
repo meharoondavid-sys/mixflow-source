@@ -198,6 +198,7 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
                 <input
                   ref={fileInputRef}
                   type="file"
+                  accept="audio/*,.wav,.mp3,.aif,.aiff,.flac,.m4a,.aac,.zip,.rar,.7z,.pdf,.doc,.docx,.txt,.rtf,.png,.jpg,.jpeg,.webp"
                   onChange={handleSelect}
                   className="hidden"
                 />
