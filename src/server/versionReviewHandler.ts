@@ -338,10 +338,15 @@ export async function handleConfirmVersionUpload(
     return { status: 403, body: { error: 'Forbidden: Insufficient permissions to confirm versions.' } };
   }
 
-  // Security check: Storage path must start with organization_id/projectId/
+  // Security check: storage path must be scoped to this project and version.
   const expectedPrefix = `${project.organization_id}/${projectId}/`;
   if (!body.storagePath.startsWith(expectedPrefix)) {
     return { status: 400, body: { error: 'Security violation: Storage path does not match project scope.' } };
+  }
+
+  const expectedVersionPrefix = expectedPrefix + body.versionId + '_';
+  if (!body.storagePath.startsWith(expectedVersionPrefix)) {
+    return { status: 400, body: { error: 'Security violation: Storage path does not match version ID.' } };
   }
 
   const expectedVersionPrefix = expectedPrefix + body.versionId + '_';
