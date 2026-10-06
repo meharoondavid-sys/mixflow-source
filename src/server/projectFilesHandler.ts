@@ -10,57 +10,9 @@ interface ProjectFilesHandlerContext {
   createClientFn?: typeof createClient;
 }
 
-// In-memory / storage fallback cache for project files when Postgres table is not yet migrated
-const memoryProjectFiles: Map<string, ProjectFileRecord[]> = new Map();
-
-async function getProjectFilesFromStorageOrCache(
-  adminClient: any,
-  orgId: string,
-  projectId: string
-): Promise<ProjectFileRecord[]> {
-  const indexPath = `${orgId}/${projectId}/.project-files-index.json`;
-  try {
-    const { data: fileData, error: dlErr } = await adminClient.storage
-      .from('project-files')
-      .download(indexPath);
-
-    if (!dlErr && fileData) {
-      const text = await fileData.text();
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        memoryProjectFiles.set(projectId, parsed);
-        return parsed;
-      }
-    }
-  } catch {
-    // Index file does not exist yet or failed to download
-  }
-
-  return memoryProjectFiles.get(projectId) || [];
-}
-
-async function saveProjectFilesToStorageOrCache(
-  adminClient: any,
-  orgId: string,
-  projectId: string,
-  files: ProjectFileRecord[]
-): Promise<void> {
-  memoryProjectFiles.set(projectId, files);
-  const indexPath = `${orgId}/${projectId}/.project-files-index.json`;
-  try {
-    await adminClient.storage
-      .from('project-files')
-      .upload(indexPath, Buffer.from(JSON.stringify(files, null, 2)), {
-        contentType: 'application/json',
-        upsert: true,
-      });
-  } catch (err: any) {
-    console.warn('[MixFlow Storage] Failed to update storage index file:', err?.message);
-  }
-}
-
 /**
  * 1. List Files for a Project
+ * Authoritatively reads from public.project_files table.
  */
 export async function handleListProjectFiles(
   ctx: ProjectFilesHandlerContext
@@ -118,50 +70,48 @@ export async function handleListProjectFiles(
     };
   }
 
-  // Try fetching from public.project_files first
-  try {
-    const { data: dbFiles, error: dbErr } = await adminClient
-      .from('project_files')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+  // Fetch files from public.project_files
+  const { data: dbFiles, error: dbErr } = await adminClient
+    .from('project_files')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
 
-    if (!dbErr && dbFiles) {
-      // Enrich with profile names if possible
-      const uploaderIds = Array.from(new Set(dbFiles.map((f: any) => f.uploaded_by).filter(Boolean)));
-      let profileMap: Record<string, { full_name?: string; email?: string }> = {};
-      if (uploaderIds.length > 0) {
-        const { data: profiles } = await adminClient
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', uploaderIds);
-        if (profiles) {
-          profileMap = profiles.reduce((acc: any, p: any) => {
-            acc[p.id] = p;
-            return acc;
-          }, {});
-        }
-      }
-
-      const files: ProjectFileRecord[] = dbFiles.map((f: any) => ({
-        ...f,
-        uploader_name: profileMap[f.uploaded_by]?.full_name || null,
-        uploader_email: profileMap[f.uploaded_by]?.email || null,
-      }));
-
-      return { status: 200, body: { files } };
-    }
-  } catch {
-    // Fall back to storage index
+  if (dbErr) {
+    console.error('[MixFlow Files] Error querying project_files:', dbErr);
+    return { status: 500, body: { error: 'Failed to retrieve project files.' } };
   }
 
-  // Fallback to storage index
-  const files = await getProjectFilesFromStorageOrCache(adminClient, project.organization_id, projectId);
+  const fileRows = dbFiles || [];
+
+  // Enrich with profile names
+  const uploaderIds = Array.from(new Set(fileRows.map((f: any) => f.uploaded_by).filter(Boolean)));
+  let profileMap: Record<string, { full_name?: string; email?: string }> = {};
+  if (uploaderIds.length > 0) {
+    const { data: profiles } = await adminClient
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', uploaderIds);
+    if (profiles) {
+      profileMap = profiles.reduce((acc: any, p: any) => {
+        acc[p.id] = p;
+        return acc;
+      }, {});
+    }
+  }
+
+  const files: ProjectFileRecord[] = fileRows.map((f: any) => ({
+    ...f,
+    uploader_name: profileMap[f.uploaded_by]?.full_name || null,
+    uploader_email: profileMap[f.uploaded_by]?.email || null,
+  }));
+
   return { status: 200, body: { files } };
 }
 
 /**
  * 2. Request Signed Upload URL
+ * Enforces role authorization, path scoping, and optional song membership.
  */
 export async function handleCreateSignedUploadUrl(
   ctx: ProjectFilesHandlerContext & { body: RequestUploadUrlInput }
@@ -242,6 +192,7 @@ export async function handleCreateSignedUploadUrl(
   }
 
   // Generate fileId and sanitized storage path
+  // Standard Step 9A convention: organization_id/project_id/<file_id>_<sanitized_filename>
   const fileId = crypto.randomUUID();
   const sanitizedName = body.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
   const storagePath = `${project.organization_id}/${projectId}/${fileId}_${sanitizedName}`;
@@ -269,6 +220,7 @@ export async function handleCreateSignedUploadUrl(
 
 /**
  * 3. Confirm File Upload & Record Metadata
+ * Enforces path validation, song association, and inserts into public.project_files.
  */
 export async function handleConfirmFileUpload(
   ctx: ProjectFilesHandlerContext & { body: ConfirmUploadInput }
@@ -327,6 +279,20 @@ export async function handleConfirmFileUpload(
     };
   }
 
+  // Verify songId if supplied belongs to this project
+  if (body.songId) {
+    const { data: song, error: songErr } = await adminClient
+      .from('project_songs')
+      .select('id')
+      .eq('id', body.songId)
+      .eq('project_id', projectId)
+      .maybeSingle();
+
+    if (songErr || !song) {
+      return { status: 400, body: { error: 'Invalid song ID: Song does not belong to this project.' } };
+    }
+  }
+
   // Fetch caller profile
   const { data: profile } = await adminClient
     .from('profiles')
@@ -351,39 +317,32 @@ export async function handleConfirmFileUpload(
     updated_at: now,
   };
 
-  // Try inserting into public.project_files table
-  let insertedInDb = false;
-  try {
-    const { error: insertErr } = await adminClient.from('project_files').insert({
-      id: newFileRecord.id,
-      organization_id: newFileRecord.organization_id,
-      project_id: newFileRecord.project_id,
-      song_id: newFileRecord.song_id,
-      name: newFileRecord.name,
-      storage_path: newFileRecord.storage_path,
-      file_type: newFileRecord.file_type,
-      file_size: newFileRecord.file_size,
-      uploaded_by: newFileRecord.uploaded_by,
-      created_at: newFileRecord.created_at,
-      updated_at: newFileRecord.updated_at,
-    });
-    if (!insertErr) {
-      insertedInDb = true;
-    }
-  } catch {
-    // Table not migrated yet
+  // Insert into public.project_files table
+  const { error: insertErr } = await adminClient.from('project_files').insert({
+    id: newFileRecord.id,
+    organization_id: newFileRecord.organization_id,
+    project_id: newFileRecord.project_id,
+    song_id: newFileRecord.song_id,
+    name: newFileRecord.name,
+    storage_path: newFileRecord.storage_path,
+    file_type: newFileRecord.file_type,
+    file_size: newFileRecord.file_size,
+    uploaded_by: newFileRecord.uploaded_by,
+    created_at: newFileRecord.created_at,
+    updated_at: newFileRecord.updated_at,
+  });
+
+  if (insertErr) {
+    console.error('[MixFlow Files] Insert into project_files failed:', insertErr);
+    return { status: 500, body: { error: 'Failed to record file metadata in database.' } };
   }
 
-  // Always update storage index
-  const currentFiles = await getProjectFilesFromStorageOrCache(adminClient, project.organization_id, projectId);
-  const updatedFiles = [newFileRecord, ...currentFiles.filter((f) => f.id !== newFileRecord.id)];
-  await saveProjectFilesToStorageOrCache(adminClient, project.organization_id, projectId, updatedFiles);
-
-  return { status: 201, body: { file: newFileRecord, storedInDb: insertedInDb } };
+  return { status: 201, body: { file: newFileRecord } };
 }
 
 /**
  * 4. Get Signed Download URL
+ * Generates short-lived signed URL for authenticated organization members.
  */
 export async function handleGetSignedDownloadUrl(
   ctx: ProjectFilesHandlerContext & { fileId: string }
@@ -433,29 +392,15 @@ export async function handleGetSignedDownloadUrl(
     return { status: 403, body: { error: 'Forbidden: You do not belong to this organization.' } };
   }
 
-  // Find file metadata
-  let targetFile: ProjectFileRecord | null = null;
+  // Find file metadata from public.project_files
+  const { data: targetFile, error: fileErr } = await adminClient
+    .from('project_files')
+    .select('*')
+    .eq('id', fileId)
+    .eq('project_id', projectId)
+    .maybeSingle();
 
-  try {
-    const { data: dbFile } = await adminClient
-      .from('project_files')
-      .select('*')
-      .eq('id', fileId)
-      .eq('project_id', projectId)
-      .maybeSingle();
-    if (dbFile) {
-      targetFile = dbFile as ProjectFileRecord;
-    }
-  } catch {
-    // fallback
-  }
-
-  if (!targetFile) {
-    const files = await getProjectFilesFromStorageOrCache(adminClient, project.organization_id, projectId);
-    targetFile = files.find((f) => f.id === fileId) || null;
-  }
-
-  if (!targetFile) {
+  if (fileErr || !targetFile) {
     return { status: 404, body: { error: 'File record not found.' } };
   }
 
@@ -487,6 +432,7 @@ export async function handleGetSignedDownloadUrl(
 
 /**
  * 5. Delete File
+ * Verifies caller is studio manager or original uploader before removing from storage and DB.
  */
 export async function handleDeleteProjectFile(
   ctx: ProjectFilesHandlerContext & { fileId: string }
@@ -536,29 +482,15 @@ export async function handleDeleteProjectFile(
     return { status: 403, body: { error: 'Forbidden: You do not belong to this organization.' } };
   }
 
-  // Find file metadata
-  let targetFile: ProjectFileRecord | null = null;
+  // Find file metadata from public.project_files
+  const { data: targetFile, error: fileErr } = await adminClient
+    .from('project_files')
+    .select('*')
+    .eq('id', fileId)
+    .eq('project_id', projectId)
+    .maybeSingle();
 
-  try {
-    const { data: dbFile } = await adminClient
-      .from('project_files')
-      .select('*')
-      .eq('id', fileId)
-      .eq('project_id', projectId)
-      .maybeSingle();
-    if (dbFile) {
-      targetFile = dbFile as ProjectFileRecord;
-    }
-  } catch {
-    // fallback
-  }
-
-  if (!targetFile) {
-    const files = await getProjectFilesFromStorageOrCache(adminClient, project.organization_id, projectId);
-    targetFile = files.find((f) => f.id === fileId) || null;
-  }
-
-  if (!targetFile) {
+  if (fileErr || !targetFile) {
     return { status: 404, body: { error: 'File record not found.' } };
   }
 
@@ -587,17 +519,12 @@ export async function handleDeleteProjectFile(
     console.warn('[MixFlow Storage] Failed to remove storage object:', err?.message);
   }
 
-  // Remove from DB if table exists
-  try {
-    await adminClient.from('project_files').delete().eq('id', fileId);
-  } catch {
-    // fallback
+  // Remove from public.project_files DB table
+  const { error: delErr } = await adminClient.from('project_files').delete().eq('id', fileId);
+  if (delErr) {
+    console.error('[MixFlow Files] Delete from project_files failed:', delErr);
+    return { status: 500, body: { error: 'Failed to delete file from database.' } };
   }
-
-  // Remove from storage index
-  const files = await getProjectFilesFromStorageOrCache(adminClient, project.organization_id, projectId);
-  const remainingFiles = files.filter((f) => f.id !== fileId);
-  await saveProjectFilesToStorageOrCache(adminClient, project.organization_id, projectId, remainingFiles);
 
   return { status: 200, body: { success: true } };
 }

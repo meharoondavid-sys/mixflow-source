@@ -468,6 +468,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInAsDemo = (emailInput?: string, nameInput?: string, roleInput: OrganizationRole = 'owner') => {
+    const demoEmail = emailInput?.trim() || 'meharoondavid@gmail.com';
+    const demoName = nameInput?.trim() || (demoEmail.includes('@') ? demoEmail.split('@')[0] : 'Studio Engineer');
+    const demoId = `demo_engineer_session`;
+
+    const demoUser: User = {
+      id: demoId,
+      app_metadata: { provider: 'email' },
+      user_metadata: {
+        full_name: demoName,
+        studio_name: 'MixFlow Sound Studio',
+      },
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+      email: demoEmail,
+      phone: '',
+      role: 'authenticated',
+      updated_at: new Date().toISOString(),
+    };
+
+    const demoOrg: Organization = {
+      id: 'org-studio-1',
+      name: 'MixFlow Sound Studio',
+      slug: 'mixflow-studio',
+      owner_id: demoId,
+      created_at: new Date().toISOString(),
+    };
+
+    const demoProfile: UserProfile = {
+      id: demoId,
+      full_name: demoName,
+      avatar_url: '',
+      phone: '',
+      created_at: new Date().toISOString(),
+    };
+
+    setUser(demoUser);
+    setProfile(demoProfile);
+    setOrganization(demoOrg);
+    setRole(roleInput);
+    setProvisioning(false);
+    setProvisioningError(null);
+    setPendingConfirmationEmail(null);
+    setLoading(false);
+  };
+
   const setAnonKeyManually = (key: string) => {
     const cleaned = key.trim();
     reinitializeSupabase(cleaned);
@@ -493,6 +539,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         signOut,
         refreshProfileAndOrg,
+        signInAsDemo,
       }}
     >
       {children}

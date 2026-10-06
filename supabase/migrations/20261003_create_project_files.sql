@@ -66,19 +66,6 @@ WITH CHECK (
   )
 );
 
--- UPDATE: Authorized roles (owner, admin, engineer, producer) can update file metadata
-DROP POLICY IF EXISTS "Authorized roles can update project files" ON public.project_files;
-CREATE POLICY "Authorized roles can update project files"
-ON public.project_files
-FOR UPDATE
-TO authenticated
-USING (
-  private.has_org_role(project_files.organization_id, ARRAY['owner', 'admin', 'engineer', 'producer'], auth.uid())
-)
-WITH CHECK (
-  private.has_org_role(project_files.organization_id, ARRAY['owner', 'admin', 'engineer', 'producer'], auth.uid())
-);
-
 -- DELETE: Owners, Admins, or the original uploader can delete project files
 DROP POLICY IF EXISTS "Owners, Admins, or uploader can delete project files" ON public.project_files;
 CREATE POLICY "Owners, Admins, or uploader can delete project files"
@@ -93,4 +80,60 @@ USING (
   )
 );
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_files TO authenticated;
+GRANT SELECT, INSERT, DELETE ON public.project_files TO authenticated;
+
+-- 5. Live Supabase Storage (storage.objects) RLS Policies for 'project-files' bucket
+-- NOTE: Intentionally NO UPDATE policy is defined.
+-- Allowed operations: INSERT, SELECT, DELETE.
+
+-- Policy 1: SELECT (Authenticated organization members can read project files)
+-- Evaluates organization ID from the first folder component of storage.objects.name: (storage.foldername(objects.name))[1]::uuid
+DROP POLICY IF EXISTS "Authenticated organization members can read project files" ON storage.objects;
+CREATE POLICY "Authenticated organization members can read project files"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'project-files'
+  AND private.is_org_member((storage.foldername(objects.name))[1]::uuid, auth.uid())
+);
+
+-- Policy 2: INSERT (Authorized organization members can insert project files)
+-- Validates:
+-- 1. bucket_id = 'project-files'
+-- 2. organization ID from storage path: (storage.foldername(objects.name))[1]::uuid
+-- 3. project ID from storage path: (storage.foldername(objects.name))[2]::uuid
+-- 4. project belongs to that organization
+-- 5. authenticated user has role: owner, admin, engineer, or producer
+DROP POLICY IF EXISTS "Authorized organization members can insert project files" ON storage.objects;
+CREATE POLICY "Authorized organization members can insert project files"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'project-files'
+  AND private.has_org_role((storage.foldername(objects.name))[1]::uuid, ARRAY['owner', 'admin', 'engineer', 'producer'], auth.uid())
+  AND EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE projects.id = (storage.foldername(objects.name))[2]::uuid
+      AND projects.organization_id = (storage.foldername(objects.name))[1]::uuid
+  )
+);
+
+-- Policy 3: DELETE (Owners, Admins, or uploader can delete project files)
+DROP POLICY IF EXISTS "Owners, Admins, or uploader can delete project files" ON storage.objects;
+CREATE POLICY "Owners, Admins, or uploader can delete project files"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'project-files'
+  AND (
+    private.has_org_role((storage.foldername(objects.name))[1]::uuid, ARRAY['owner', 'admin'], auth.uid())
+    OR (
+      owner = auth.uid()
+      AND private.is_org_member((storage.foldername(objects.name))[1]::uuid, auth.uid())
+    )
+  )
+);
+

@@ -25,7 +25,8 @@ export const AuthScreen: React.FC = () => {
     isConfigured, 
     setAnonKeyManually, 
     pendingConfirmationEmail, 
-    setPendingConfirmationEmail 
+    setPendingConfirmationEmail,
+    signInAsDemo
   } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -266,6 +267,33 @@ export const AuthScreen: React.FC = () => {
                       )}
                     </div>
                   )}
+
+                  {mode === 'signin' && (
+                    <div className="mt-3 pt-3 border-t border-red-500/20 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
+                        <span className="text-zinc-300">No account created in this Supabase database yet?</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMode('signup');
+                            setFormError(null);
+                            setFormDiagnostic(null);
+                          }}
+                          className="text-emerald-400 hover:text-emerald-300 font-bold underline underline-offset-2 cursor-pointer text-left sm:text-right"
+                        >
+                          Sign up as new studio →
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => signInAsDemo(email, fullName, 'owner')}
+                        className="w-full py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Headphones size={13} />
+                        <span>⚡ Launch Studio Console Immediately (Demo Engineer)</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -372,6 +400,18 @@ export const AuthScreen: React.FC = () => {
                 </>
               )}
             </button>
+
+            {/* Instant Demo Login Button */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => signInAsDemo(email || 'alex@sonichorizon.audio', fullName || 'Alex Rivera', 'owner')}
+                className="w-full py-2.5 bg-zinc-950 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+              >
+                <Headphones size={14} className="text-emerald-400" />
+                <span>⚡ Instant Studio Demo (Sign In as Lead Engineer)</span>
+              </button>
+            </div>
           </form>
 
           {/* Quick Demo Credentials Assistant */}

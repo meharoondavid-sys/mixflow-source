@@ -11,6 +11,7 @@ import { ClientsView } from './components/engineer/ClientsView';
 import { InvoicesView } from './components/engineer/InvoicesView';
 import { SettingsView } from './components/engineer/SettingsView';
 import { ClientReviewView } from './components/client/ClientReviewView';
+import { ClientPortal } from './components/client/ClientPortal';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { downloadProjectSourceZip } from './utils/exportSourceZip';
 
@@ -25,6 +26,7 @@ const AppContent: React.FC = () => {
     user, 
     loading, 
     organization, 
+    role,
     provisioning, 
     provisioningError, 
     refreshProfileAndOrg 
@@ -40,6 +42,33 @@ const AppContent: React.FC = () => {
     projects
   } = useApp();
 
+  const isStudioStaff = Boolean(
+    user && organization && role && ['owner', 'admin', 'engineer', 'producer', 'finance'].includes(role)
+  );
+
+  // FIX 2: Studio users with valid organization membership (owner, admin, engineer, producer, finance)
+  // are routed to the Engineer/Studio Console after authentication if the browser remained on #/client.
+  // Public review links (#/review/...) and genuine client users are strictly preserved.
+  useEffect(() => {
+    if (!loading && user && isStudioStaff) {
+      const hash = window.location.hash;
+      // Do NOT interfere with public review links (#/review/...)
+      if (hash.startsWith('#/review/')) {
+        return;
+      }
+
+      // If user is studio staff and arrived or remained on a generic client route (#/client, #/client/projects)
+      // or empty hash, ensure they are routed to the Engineer/Studio Console after authentication.
+      if (
+        currentView === 'client' &&
+        (hash === '#/client' || hash === '#client' || hash === '#/client/projects' || hash === '')
+      ) {
+        setCurrentView('engineer');
+        setEngineerTab('projects');
+      }
+    }
+  }, [user, loading, isStudioStaff, currentView, setCurrentView, setEngineerTab]);
+
   // Listen to hash change for direct share links and tab routing
   useEffect(() => {
     const handleHash = () => {
@@ -51,6 +80,8 @@ const AppContent: React.FC = () => {
           setActiveClientToken(token);
           setCurrentView('client');
         }
+      } else if (hash.startsWith('#/client') || hash.startsWith('#client')) {
+        setCurrentView('client');
       } else if (hash.startsWith('#/project/') || hash.startsWith('#project/')) {
         const pId = hash.replace(/^#\/?project\//, '');
         if (pId) {
@@ -137,9 +168,15 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-emerald-500 selection:text-black pb-16">
-      {/* 1. Client View: accessible without login via shareable link */}
+      {/* 1. Client View: Either share review link or authenticated Client Portal */}
       {currentView === 'client' ? (
-        <ClientReviewView />
+        window.location.hash.startsWith('#/review/') ? (
+          <ClientReviewView />
+        ) : !user ? (
+          <AuthScreen />
+        ) : (
+          <ClientPortal />
+        )
       ) : !user ? (
         /* 2. Unauthenticated Engineer: Supabase Login / Signup Screen */
         <AuthScreen />
@@ -189,13 +226,27 @@ const AppContent: React.FC = () => {
 
         <button
           onClick={() => {
+            window.location.hash = '#/client/projects';
+            setCurrentView('client');
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
+            currentView === 'client' && !window.location.hash.startsWith('#/review/')
+              ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+          }`}
+        >
+          <span>👤 Client Portal</span>
+        </button>
+
+        <button
+          onClick={() => {
             const token = projects[0]?.shareToken || 'rev-neon-77a8';
             setActiveClientToken(token);
             window.location.hash = `#/review/${token}`;
             setCurrentView('client');
           }}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
-            currentView === 'client'
+            currentView === 'client' && window.location.hash.startsWith('#/review/')
               ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
               : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
           }`}

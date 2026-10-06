@@ -31,6 +31,10 @@ import { useServices } from '../../hooks/useServices';
 import { useClients } from '../../hooks/useClients';
 import { useTeamMembers, TeamMember } from '../../hooks/useTeamMembers';
 import { ProjectFilesSection } from './ProjectFilesSection';
+import { ProjectFeedbackTab } from './ProjectFeedbackTab';
+import { ProjectPaymentsSection } from './ProjectPaymentsSection';
+import { ProjectDeliveriesSection } from './ProjectDeliveriesSection';
+import { useProjectPayments } from '../../hooks/useProjectPayments';
 import { 
   ProjectRecord, 
   ProjectType,
@@ -68,6 +72,12 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   const { clients } = useClients();
 
   const project = projects.find((p) => p.id === projectId);
+
+  const { summary: paymentSummary } = useProjectPayments(
+    projectId,
+    project?.project_price || 0,
+    project?.deposit_amount || 0
+  );
 
   const [newTrackTitle, setNewTrackTitle] = useState('');
   const [newTrackNumber, setNewTrackNumber] = useState('');
@@ -294,7 +304,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
     );
   }
 
-  const balance = Math.max(0, project.project_price - project.deposit_amount);
+  const balance = paymentSummary.outstanding_balance;
   const statusConfig = PROJECT_STATUS_CONFIG[project.status] || {
     label: project.status,
     color: 'text-zinc-300',
@@ -523,11 +533,25 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
         {/* Balance Remaining */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-1">
           <span className="text-xs text-zinc-400 block">Remaining Balance</span>
-          <div className={`text-2xl font-bold font-mono tabular-nums ${balance === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-            ${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div
+            className={`text-2xl font-bold font-mono tabular-nums ${
+              paymentSummary.is_overpaid
+                ? 'text-purple-400'
+                : balance === 0
+                ? 'text-emerald-400'
+                : 'text-amber-400'
+            }`}
+          >
+            {paymentSummary.is_overpaid
+              ? `-$${paymentSummary.overpaid_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           </div>
           <span className="text-[10px] text-zinc-500 font-mono">
-            {balance === 0 ? 'Paid in full' : 'Due upon completion'}
+            {paymentSummary.is_overpaid
+              ? 'Credit overpayment'
+              : balance === 0
+              ? 'Paid in full'
+              : 'Due upon completion'}
           </span>
         </div>
 
@@ -1031,6 +1055,24 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
 
       {/* Project & Song Files Management Section (Step 9) */}
       <ProjectFilesSection projectId={project.id} songs={project.songs || []} />
+
+      {/* Audio Versions & Timestamped Client Feedback (Step 11 & 12) */}
+      <ProjectFeedbackTab projectId={project.id} songs={project.songs || []} />
+
+      {/* Payments & Billing Foundation (Step 13) */}
+      <ProjectPaymentsSection
+        projectId={project.id}
+        projectPrice={project.project_price}
+        depositAmount={project.deposit_amount}
+        clientName={project.client?.full_name}
+      />
+
+      {/* Final Delivery Foundation (Step 14) */}
+      <ProjectDeliveriesSection
+        projectId={project.id}
+        projectName={project.name}
+        songs={project.songs || []}
+      />
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

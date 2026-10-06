@@ -1,0 +1,741 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  Play, 
+  Pause, 
+  RotateCcw, 
+  Volume2, 
+  VolumeX, 
+  MessageSquarePlus, 
+  CheckCircle2, 
+  Clock, 
+  Music, 
+  Layers, 
+  Send,
+  Loader2,
+  AlertCircle,
+  History,
+  FileAudio,
+  Calendar,
+  User,
+  ChevronDown,
+  ChevronUp,
+  Info
+} from 'lucide-react';
+import { ProjectFileVersionRecord, ProjectFeedbackRecord } from '../../types/versionFeedback';
+import { getSupabase } from '../../lib/supabase';
+
+interface ClientAudioReviewViewProps {
+  projectId: string;
+  songs: Array<{ id: string; title: string; track_number: number }>;
+}
+
+export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs }) => {
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id || null);
+  const [versions, setVersions] = useState<ProjectFileVersionRecord[]>([]);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [feedbackList, setFeedbackList] = useState<ProjectFeedbackRecord[]>([]);
+  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'open' | 'resolved'>('all');
+  const [showHistory, setShowHistory] = useState<boolean>(false);
+  
+  // Audio Playback State
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [loadingAudio, setLoadingAudio] = useState<boolean>(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+
+  // Feedback Form State
+  const [commentText, setCommentText] = useState<string>('');
+  const [feedbackTimestamp, setFeedbackTimestamp] = useState<number>(0);
+  const [submittingFeedback, setSubmittingFeedback] = useState<boolean>(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const getAuthToken = async () => {
+    const sb = getSupabase();
+    const { data } = await sb.auth.getSession();
+    return data.session?.access_token || null;
+  };
+
+  // 1. Fetch versions when selectedSongId changes
+  useEffect(() => {
+    let isCancelled = false;
+    const loadVersions = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) return;
+
+        const url = selectedSongId
+          ? `/api/projects/${projectId}/versions?songId=${selectedSongId}`
+          : `/api/projects/${projectId}/versions`;
+
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isCancelled) {
+          const vList: ProjectFileVersionRecord[] = data.versions || [];
+          setVersions(vList);
+          if (vList.length > 0) {
+            // Auto-select the latest version by default
+            const latest = vList[vList.length - 1];
+            if (!selectedVersionId || !vList.some(v => v.id === selectedVersionId)) {
+              setSelectedVersionId(latest.id);
+            }
+          } else {
+            setSelectedVersionId(null);
+            setPlaybackUrl(null);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load versions:', err);
+      }
+    };
+
+    loadVersions();
+    return () => {
+      isCancelled = true;
+    };
+  }, [projectId, selectedSongId]);
+
+  // 2. Fetch feedback and audio stream when selectedVersionId changes
+  useEffect(() => {
+    if (!selectedVersionId) {
+      setFeedbackList([]);
+      setPlaybackUrl(null);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadFeedback = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) return;
+
+        const res = await fetch(`/api/projects/${projectId}/feedback?versionId=${selectedVersionId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok && !isCancelled) {
+          const data = await res.json();
+          setFeedbackList(data.feedback || []);
+        }
+      } catch (err) {
+        console.error('Failed to load feedback:', err);
+      }
+    };
+
+    const loadPlaybackUrl = async () => {
+      setLoadingAudio(true);
+      setAudioError(null);
+      try {
+        const token = await getAuthToken();
+        if (!token) return;
+
+        const res = await fetch(`/api/projects/${projectId}/versions/${selectedVersionId}/playback-url`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to load audio stream.');
+        }
+
+        const data = await res.json();
+        if (!isCancelled) {
+          setPlaybackUrl(data.signedUrl);
+        }
+      } catch (err: any) {
+        if (!isCancelled) {
+          setAudioError(err.message || 'Audio playback error.');
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingAudio(false);
+        }
+      }
+    };
+
+    loadFeedback();
+    loadPlaybackUrl();
+
+    return () => {
+      isCancelled = true;
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+  }, [projectId, selectedVersionId]);
+
+  // Format seconds to mm:ss
+  const formatTime = (secs: number) => {
+    if (isNaN(secs) || secs < 0) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (!bytes || bytes <= 0) return '0 B';
+    const mb = bytes / (1024 * 1024);
+    if (mb >= 1) return `${mb.toFixed(1)} MB`;
+    const kb = bytes / 1024;
+    return `${kb.toFixed(1)} KB`;
+  };
+
+  const handlePlayPause = () => {
+    if (!audioRef.current || !playbackUrl) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().then(() => setIsPlaying(true)).catch((err) => {
+        console.error('Audio play error:', err);
+      });
+    }
+  };
+
+  const handleSeek = (newTime: number) => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handleCaptureCurrentTime = () => {
+    setFeedbackTimestamp(Math.round(currentTime * 100) / 100);
+  };
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVersionId || !commentText.trim()) return;
+
+    setSubmittingFeedback(true);
+    setFeedbackError(null);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required.');
+
+      const res = await fetch(`/api/projects/${projectId}/feedback`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          versionId: selectedVersionId,
+          songId: selectedSongId,
+          timestampSeconds: feedbackTimestamp,
+          comment: commentText.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to submit feedback.');
+      }
+
+      const { feedback: newFb } = await res.json();
+      setFeedbackList((prev) => [...prev, newFb].sort((a, b) => a.timestamp_seconds - b.timestamp_seconds));
+      setCommentText('');
+    } catch (err: any) {
+      setFeedbackError(err.message || 'Error saving feedback.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  const selectedSong = songs.find((s) => s.id === selectedSongId);
+  const selectedVersion = versions.find((v) => v.id === selectedVersionId);
+  const latestVersion = versions.length > 0 ? versions[versions.length - 1] : null;
+  const isSelectedLatest = selectedVersion?.id === latestVersion?.id;
+
+  // Filter feedback
+  const filteredFeedback = feedbackList.filter((fb) => {
+    if (feedbackFilter === 'open') return fb.status === 'open';
+    if (feedbackFilter === 'resolved') return fb.status === 'resolved';
+    return true;
+  });
+
+  const openCount = feedbackList.filter((f) => f.status === 'open').length;
+  const resolvedCount = feedbackList.filter((f) => f.status === 'resolved').length;
+
+  return (
+    <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl p-6 sm:p-8 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/60 pb-5">
+        <div>
+          <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+            <Music size={18} className="text-emerald-400" />
+            <span>Mix Revision & Audio Review</span>
+          </h2>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Listen to the latest mix revision, leave timestamped notes for the engineer, and review version history.
+          </p>
+        </div>
+
+        {/* Song Selector */}
+        {songs.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-400 font-medium">Song:</span>
+            <select
+              value={selectedSongId || ''}
+              onChange={(e) => setSelectedSongId(e.target.value)}
+              className="bg-zinc-800 border border-zinc-700 text-xs text-zinc-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              {songs.map((s) => (
+                <option key={s.id} value={s.id}>
+                  Track {s.track_number}: {s.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Version Selector Tabs & History Toggle */}
+      {versions.length === 0 ? (
+        <div className="py-12 text-center space-y-2 border border-dashed border-zinc-800 rounded-2xl">
+          <Layers size={24} className="text-zinc-600 mx-auto" />
+          <p className="text-xs text-zinc-400 font-medium">No audio review versions uploaded for this track yet.</p>
+          <p className="text-[11px] text-zinc-500">Your audio engineer will upload mix passes here for your review.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Versions Bar & Status */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="text-xs text-zinc-400 font-medium shrink-0">Mix Pass:</span>
+              {versions.map((ver) => {
+                const isSelected = ver.id === selectedVersionId;
+                const isLatest = ver.id === latestVersion?.id;
+                return (
+                  <button
+                    key={ver.id}
+                    onClick={() => setSelectedVersionId(ver.id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                      isSelected
+                        ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
+                        : 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60'
+                    }`}
+                  >
+                    <span>Mix v{ver.version_number}</span>
+                    {isLatest && (
+                      <span className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase ${isSelected ? 'bg-black/20 text-black' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                        Latest
+                      </span>
+                    )}
+                    {ver.feedback_count ? (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-black/20 text-black' : 'bg-zinc-700 text-zinc-300'}`}>
+                        {ver.feedback_count}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="self-start sm:self-auto px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer transition shrink-0"
+            >
+              <History size={13} className="text-zinc-400" />
+              <span>Version History ({versions.length})</span>
+              {showHistory ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
+
+          {/* Historical Version Notice */}
+          {!isSelectedLatest && latestVersion && (
+            <div className="bg-amber-950/40 border border-amber-900/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5 text-amber-300">
+                <Info size={16} className="shrink-0 text-amber-400" />
+                <span>
+                  You are currently reviewing <strong>Mix v{selectedVersion?.version_number}</strong> (earlier pass). A newer mix revision (<strong>Mix v{latestVersion.version_number}</strong>) is available.
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedVersionId(latestVersion.id)}
+                className="px-3 py-1.5 bg-amber-500 text-black font-bold text-xs rounded-xl hover:bg-amber-400 transition cursor-pointer shrink-0"
+              >
+                Switch to Latest Mix v{latestVersion.version_number}
+              </button>
+            </div>
+          )}
+
+          {/* Version History Table / Drawer */}
+          {showHistory && (
+            <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl p-5 space-y-4 shadow-inner">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+                <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                  <History size={15} className="text-emerald-400" />
+                  <span>Mix Version History & Revision Log</span>
+                </h3>
+                <span className="text-[11px] text-zinc-500">All passes are securely archived</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-zinc-400 border-b border-zinc-800/60 pb-2">
+                      <th className="py-2 font-medium">Version</th>
+                      <th className="py-2 font-medium">Mix File</th>
+                      <th className="py-2 font-medium">Engineer</th>
+                      <th className="py-2 font-medium">Uploaded</th>
+                      <th className="py-2 font-medium">Size</th>
+                      <th className="py-2 font-medium">Feedback Notes</th>
+                      <th className="py-2 font-medium text-right">Review</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/40">
+                    {versions.map((ver) => {
+                      const isCurrent = ver.id === selectedVersionId;
+                      const isLatest = ver.id === latestVersion?.id;
+                      return (
+                        <tr key={ver.id} className={`hover:bg-zinc-900/40 transition ${isCurrent ? 'bg-zinc-900/30' : ''}`}>
+                          <td className="py-2.5 font-bold text-white flex items-center gap-1.5">
+                            <span>Mix v{ver.version_number}</span>
+                            {isLatest && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.2 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/30">
+                                LATEST
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 text-zinc-300 font-mono text-[11px] max-w-xs truncate">
+                            {ver.name}
+                          </td>
+                          <td className="py-2.5 text-zinc-400">
+                            {ver.uploader_name || 'Studio Engineer'}
+                          </td>
+                          <td className="py-2.5 text-zinc-400 font-mono text-[11px]">
+                            {new Date(ver.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </td>
+                          <td className="py-2.5 text-zinc-400 font-mono text-[11px]">
+                            {formatFileSize(ver.file_size)}
+                          </td>
+                          <td className="py-2.5">
+                            <div className="flex items-center gap-1 text-[11px] font-mono">
+                              <span className="text-zinc-300 font-semibold">{ver.feedback_count || 0}</span>
+                              <span className="text-zinc-500">
+                                ({ver.open_feedback_count || 0} open, {ver.resolved_feedback_count || 0} resolved)
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 text-right">
+                            <button
+                              onClick={() => setSelectedVersionId(ver.id)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition ${
+                                isCurrent
+                                  ? 'bg-emerald-500 text-black font-semibold'
+                                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                              }`}
+                            >
+                              {isCurrent ? 'Listening' : 'Listen'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Audio Player Card */}
+          <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-5 space-y-4 shadow-inner">
+            <audio
+              ref={audioRef}
+              src={playbackUrl || undefined}
+              onTimeUpdate={() => {
+                if (audioRef.current) {
+                  setCurrentTime(audioRef.current.currentTime);
+                }
+              }}
+              onLoadedMetadata={() => {
+                if (audioRef.current) {
+                  setDuration(audioRef.current.duration);
+                }
+              }}
+              onEnded={() => setIsPlaying(false)}
+            />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold text-white truncate">
+                    {selectedVersion?.name || 'Audio Track'}
+                  </p>
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
+                    isSelectedLatest
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                  }`}>
+                    {isSelectedLatest ? 'Latest Version' : `Version ${selectedVersion?.version_number}`}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                  Mix Pass v{selectedVersion?.version_number} • Secure Stream
+                  {selectedVersion?.notes && <span className="text-zinc-400 ml-2">“{selectedVersion.notes}”</span>}
+                </p>
+              </div>
+
+              {/* Player Controls */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleSeek(0)}
+                  className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer border border-zinc-800"
+                  title="Rewind to start"
+                >
+                  <RotateCcw size={14} />
+                </button>
+
+                <button
+                  onClick={handlePlayPause}
+                  disabled={loadingAudio || !playbackUrl}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-xs flex items-center gap-1.5 transition shadow-lg shadow-emerald-500/20 cursor-pointer"
+                >
+                  {loadingAudio ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Loading...</span>
+                    </>
+                  ) : isPlaying ? (
+                    <>
+                      <Pause size={14} />
+                      <span>Pause</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play size={14} />
+                      <span>Play Mix</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (audioRef.current) {
+                      audioRef.current.muted = !isMuted;
+                      setIsMuted(!isMuted);
+                    }
+                  }}
+                  className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer border border-zinc-800"
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Scrubber / Progress Bar */}
+            <div className="space-y-1.5">
+              <input
+                type="range"
+                min={0}
+                max={duration || 100}
+                step={0.1}
+                value={currentTime}
+                onChange={(e) => handleSeek(Number(e.target.value))}
+                className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+              <div className="flex justify-between text-[11px] font-mono text-zinc-500">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+
+            {audioError && (
+              <p className="text-xs text-red-400 bg-red-950/40 p-2.5 rounded-xl border border-red-900/50">
+                {audioError}
+              </p>
+            )}
+          </div>
+
+          {/* Feedback Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+            {/* Feedback Input Form */}
+            <div className="lg:col-span-5 bg-zinc-950/40 border border-zinc-800/80 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <MessageSquarePlus size={14} className="text-emerald-400" />
+                  <span>Leave Note on Mix v{selectedVersion?.version_number}</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleCaptureCurrentTime}
+                  className="text-[10px] font-mono text-emerald-400 hover:underline cursor-pointer"
+                  title="Set timestamp to current playback position"
+                >
+                  Sync to Player ({formatTime(currentTime)})
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitFeedback} className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-zinc-400 font-medium">Timestamp (seconds):</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={feedbackTimestamp}
+                      onChange={(e) => setFeedbackTimestamp(Math.max(0, Number(e.target.value)))}
+                      className="w-28 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-xs font-mono text-zinc-400">
+                      = {formatTime(feedbackTimestamp)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-zinc-400 font-medium">Your Note / Feedback:</label>
+                  <textarea
+                    rows={3}
+                    value={commentText}
+                    onChange={(e) => {
+                      setCommentText(e.target.value);
+                      if (feedbackTimestamp === 0 && currentTime > 0) {
+                        setFeedbackTimestamp(Math.round(currentTime * 100) / 100);
+                      }
+                    }}
+                    placeholder="e.g. Vocal feels slightly buried behind the lead guitar here..."
+                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition resize-none"
+                  />
+                </div>
+
+                {feedbackError && (
+                  <p className="text-[11px] text-red-400 bg-red-950/40 p-2 rounded-lg border border-red-900/50">
+                    {feedbackError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submittingFeedback || !commentText.trim()}
+                  className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/10"
+                >
+                  {submittingFeedback ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>Saving Note...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={13} />
+                      <span>Post Note on Mix v{selectedVersion?.version_number}</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Version Feedback List */}
+            <div className="lg:col-span-7 bg-zinc-950/40 border border-zinc-800/80 rounded-2xl p-5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-800/60">
+                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Clock size={14} className="text-zinc-400" />
+                  <span>Notes on Mix v{selectedVersion?.version_number}</span>
+                </h3>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[11px]">
+                  <button
+                    onClick={() => setFeedbackFilter('all')}
+                    className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                      feedbackFilter === 'all'
+                        ? 'bg-zinc-800 text-white font-bold'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    All ({feedbackList.length})
+                  </button>
+                  <button
+                    onClick={() => setFeedbackFilter('open')}
+                    className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                      feedbackFilter === 'open'
+                        ? 'bg-emerald-500 text-black font-bold'
+                        : 'text-emerald-400 hover:text-emerald-300'
+                    }`}
+                  >
+                    Open ({openCount})
+                  </button>
+                  <button
+                    onClick={() => setFeedbackFilter('resolved')}
+                    className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                      feedbackFilter === 'resolved'
+                        ? 'bg-zinc-800 text-white font-bold'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Resolved ({resolvedCount})
+                  </button>
+                </div>
+              </div>
+
+              {feedbackList.length === 0 ? (
+                <div className="py-8 text-center text-xs text-zinc-500 border border-dashed border-zinc-800/80 rounded-xl">
+                  No notes on this version yet. Play the audio and submit your feedback!
+                </div>
+              ) : filteredFeedback.length === 0 ? (
+                <div className="py-8 text-center text-xs text-zinc-500 border border-dashed border-zinc-800/80 rounded-xl">
+                  No {feedbackFilter} notes on this version.
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                  {filteredFeedback.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-zinc-900/60 border border-zinc-800/70 rounded-xl p-3 text-xs space-y-1.5 hover:border-zinc-700 transition"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSeek(Number(item.timestamp_seconds))}
+                            className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] font-semibold hover:bg-emerald-500/20 transition cursor-pointer flex items-center gap-1"
+                            title="Jump audio player to this timestamp"
+                          >
+                            <Play size={10} />
+                            <span>{formatTime(Number(item.timestamp_seconds))}</span>
+                          </button>
+                          <span className="font-semibold text-zinc-200">{item.author_name}</span>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full uppercase font-semibold flex items-center gap-1 ${
+                            item.status === 'resolved'
+                              ? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                          }`}
+                        >
+                          {item.status === 'resolved' && <CheckCircle2 size={10} />}
+                          <span>{item.status}</span>
+                        </span>
+                      </div>
+
+                      <p className="text-zinc-300 leading-relaxed text-xs">{item.comment}</p>
+
+                      {item.status === 'resolved' && item.resolved_at && (
+                        <p className="text-[10px] text-zinc-500 font-mono">
+                          Resolved on {new Date(item.resolved_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

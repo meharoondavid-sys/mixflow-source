@@ -12,6 +12,35 @@ import {
   handleGetSignedDownloadUrl,
   handleDeleteProjectFile,
 } from './src/server/projectFilesHandler.js';
+import {
+  handleGetClientPortalMe,
+  handleGetClientPortalProjects,
+  handleGetClientPortalProjectDetail,
+  handleGetClientPortalFileDownloadUrl,
+} from './src/server/clientPortalHandler.js';
+import {
+  handleListProjectVersions,
+  handleRequestVersionUploadUrl,
+  handleConfirmVersionUpload,
+  handleGetVersionPlaybackUrl,
+  handleListProjectFeedback,
+  handleCreateProjectFeedback,
+  handleUpdateFeedbackStatus,
+} from './src/server/versionReviewHandler.js';
+import {
+  handleListProjectPayments,
+  handleCreateProjectPayment,
+} from './src/server/paymentsHandler.js';
+import {
+  handleListProjectDeliveries,
+  handleCreateProjectDelivery,
+  handleGetDeliveryDownloadUrl,
+} from './src/server/finalDeliveryHandler.js';
+import {
+  handleListUserNotifications,
+  handleMarkNotificationRead,
+  handleMarkAllNotificationsRead,
+} from './src/server/notificationsHandler.js';
 
 dotenv.config({ override: true });
 
@@ -234,6 +263,492 @@ async function startServer() {
       console.error('[MixFlow Server] Unhandled delete file error:', err);
       return res.status(500).json({ error: 'Failed to delete file.' });
     }
+  });
+
+  // ==========================================
+  // Client Portal Foundation Endpoints (Step 10)
+  // ==========================================
+
+  // 1. GET /api/client-portal/me - Get Client Identity
+  app.get('/api/client-portal/me', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleGetClientPortalMe({
+        authHeader,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Client portal me error:', err);
+      return res.status(500).json({ error: 'Failed to fetch client profile.' });
+    }
+  });
+
+  // 2. GET /api/client-portal/projects - List Client's Assigned Projects
+  app.get('/api/client-portal/projects', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleGetClientPortalProjects({
+        authHeader,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Client portal projects error:', err);
+      return res.status(500).json({ error: 'Failed to fetch client projects.' });
+    }
+  });
+
+  // 3. GET /api/client-portal/projects/:projectId - Get Client Project Detail, Songs, & Files
+  app.get('/api/client-portal/projects/:projectId', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleGetClientPortalProjectDetail({
+        authHeader,
+        projectId: req.params.projectId,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Client portal project detail error:', err);
+      return res.status(500).json({ error: 'Failed to fetch project details.' });
+    }
+  });
+
+  // 4. POST /api/client-portal/projects/:projectId/files/:fileId/download-url - Get Signed URL for Permitted File
+  app.post('/api/client-portal/projects/:projectId/files/:fileId/download-url', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleGetClientPortalFileDownloadUrl({
+        authHeader,
+        projectId: req.params.projectId,
+        fileId: req.params.fileId,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Client portal download url error:', err);
+      return res.status(500).json({ error: 'Failed to generate download URL.' });
+    }
+  });
+
+  // ==========================================
+  // Step 11: Audio Versions & Feedback Endpoints
+  // ==========================================
+
+  // 1. GET /api/projects/:projectId/versions
+  app.get('/api/projects/:projectId/versions', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleListProjectVersions({
+        authHeader,
+        projectId: req.params.projectId,
+        songId: typeof req.query.songId === 'string' ? req.query.songId : undefined,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] List versions error:', err);
+      return res.status(500).json({ error: 'Failed to list versions.' });
+    }
+  });
+
+  // 2. POST /api/projects/:projectId/versions/upload-url
+  app.post('/api/projects/:projectId/versions/upload-url', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleRequestVersionUploadUrl({
+        authHeader,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Request version upload URL error:', err);
+      return res.status(500).json({ error: 'Failed to request version upload URL.' });
+    }
+  });
+
+  // 3. POST /api/projects/:projectId/versions/confirm
+  app.post('/api/projects/:projectId/versions/confirm', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleConfirmVersionUpload({
+        authHeader,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Confirm version upload error:', err);
+      return res.status(500).json({ error: 'Failed to confirm version upload.' });
+    }
+  });
+
+  // 4. GET /api/projects/:projectId/versions/:versionId/playback-url
+  app.get('/api/projects/:projectId/versions/:versionId/playback-url', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleGetVersionPlaybackUrl({
+        authHeader,
+        projectId: req.params.projectId,
+        versionId: req.params.versionId,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Get version playback URL error:', err);
+      return res.status(500).json({ error: 'Failed to generate playback URL.' });
+    }
+  });
+
+  // 5. GET /api/projects/:projectId/feedback
+  app.get('/api/projects/:projectId/feedback', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleListProjectFeedback({
+        authHeader,
+        projectId: req.params.projectId,
+        versionId: typeof req.query.versionId === 'string' ? req.query.versionId : undefined,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] List feedback error:', err);
+      return res.status(500).json({ error: 'Failed to retrieve feedback.' });
+    }
+  });
+
+  // 6. POST /api/projects/:projectId/feedback
+  app.post('/api/projects/:projectId/feedback', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleCreateProjectFeedback({
+        authHeader,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Create feedback error:', err);
+      return res.status(500).json({ error: 'Failed to create feedback.' });
+    }
+  });
+
+  // 7. PATCH /api/projects/:projectId/feedback/:feedbackId/status
+  app.patch('/api/projects/:projectId/feedback/:feedbackId/status', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleUpdateFeedbackStatus({
+        authHeader,
+        projectId: req.params.projectId,
+        feedbackId: req.params.feedbackId,
+        body: req.body,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Update feedback status error:', err);
+      return res.status(500).json({ error: 'Failed to update feedback status.' });
+    }
+  });
+
+  // =========================================================================
+  // Step 13: Payments & Billing Foundation Endpoints
+  // =========================================================================
+
+  // 1. List payments for a project (Org members & assigned client)
+  app.get('/api/projects/:projectId/payments', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleListProjectPayments({
+        authHeader,
+        projectId: req.params.projectId,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] List project payments error:', err);
+      return res.status(500).json({ error: 'Failed to fetch project payments.' });
+    }
+  });
+
+  // 2. Record new project payment (Owner, Admin, Finance only)
+  app.post('/api/projects/:projectId/payments', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleCreateProjectPayment({
+        authHeader,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Create project payment error:', err);
+      return res.status(500).json({ error: 'Failed to record project payment.' });
+    }
+  });
+
+  // 3. Prevent payment deletion: Return 405 Method Not Allowed
+  app.delete('/api/projects/:projectId/payments*', (_req, res) => {
+    return res.status(405).json({
+      error: 'Method Not Allowed. Payment records are immutable financial history and cannot be deleted.',
+    });
+  });
+
+  // =========================================================================
+  // Step 14: Final Delivery Foundation Endpoints
+  // =========================================================================
+
+  // 1. List Final Deliveries for a Project (Studio staff & assigned client)
+  app.get('/api/projects/:projectId/deliveries', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleListProjectDeliveries({
+        authHeader,
+        projectId: req.params.projectId,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] List project deliveries error:', err);
+      return res.status(500).json({ error: 'Failed to fetch project deliveries.' });
+    }
+  });
+
+  // 2. Create / Release Final Delivery (Owner, Admin, Engineer only)
+  app.post('/api/projects/:projectId/deliveries', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleCreateProjectDelivery({
+        authHeader,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Create project delivery error:', err);
+      return res.status(500).json({ error: 'Failed to release final deliverable.' });
+    }
+  });
+
+  // 3. Generate Secure Download URL for Final Delivery (Studio staff & assigned client)
+  app.post('/api/projects/:projectId/deliveries/:deliveryId/download-url', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleGetDeliveryDownloadUrl({
+        authHeader,
+        projectId: req.params.projectId,
+        deliveryId: req.params.deliveryId,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Delivery download URL error:', err);
+      return res.status(500).json({ error: 'Failed to generate delivery download URL.' });
+    }
+  });
+
+  // 4. Prevent delivery deletion: Return 405 Method Not Allowed
+  app.delete('/api/projects/:projectId/deliveries*', (_req, res) => {
+    return res.status(405).json({
+      error: 'Method Not Allowed. Final deliverable records are immutable archival releases and cannot be deleted.',
+    });
+  });
+
+  // =========================================================================
+  // STEP 15: NOTIFICATIONS FOUNDATION ENDPOINTS
+  // =========================================================================
+
+  // 1. List Authenticated Caller's Notifications
+  app.get('/api/notifications', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleListUserNotifications({
+        authHeader,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] List notifications error:', err);
+      return res.status(500).json({ error: 'Failed to retrieve notifications.' });
+    }
+  });
+
+  // 2. Mark Single Notification as Read
+  app.patch('/api/notifications/:id/read', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleMarkNotificationRead({
+        authHeader,
+        notificationId: req.params.id,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Mark notification read error:', err);
+      return res.status(500).json({ error: 'Failed to mark notification as read.' });
+    }
+  });
+
+  // 3. Mark All Notifications as Read
+  app.post('/api/notifications/read-all', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+      const result = await handleMarkAllNotificationsRead({
+        authHeader,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Mark all notifications read error:', err);
+      return res.status(500).json({ error: 'Failed to mark all notifications as read.' });
+    }
+  });
+
+  // 4. Block Notification Deletion: Return 405 Method Not Allowed
+  app.delete('/api/notifications*', (_req, res) => {
+    return res.status(405).json({
+      error: 'Method Not Allowed. Notifications are immutable activity records and cannot be deleted.',
+    });
   });
 
   const isProduction = process.env.NODE_ENV === 'production';

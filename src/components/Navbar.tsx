@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { downloadProjectSourceZip } from '../utils/exportSourceZip';
+import { useNotifications } from '../hooks/useNotifications';
 
 export const Navbar: React.FC = () => {
   const { 
@@ -43,10 +44,37 @@ export const Navbar: React.FC = () => {
     signOut
   } = useApp();
 
+  const {
+    notifications: liveNotifications,
+    unreadCount: liveUnreadCount,
+    markAsRead,
+    markAllAsRead,
+  } = useNotifications();
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const formatNotifTime = (iso?: string | null) => {
+    if (!iso) return 'Just now';
+    try {
+      const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (diffSec < 60) return 'Just now';
+      if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+      if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+      return `${Math.floor(diffSec / 86400)}d ago`;
+    } catch {
+      return 'Recent';
+    }
+  };
+
+  const handleNotificationClick = async (notifId: string, linkUrl?: string | null) => {
+    await markAsRead(notifId);
+    setShowNotifications(false);
+    if (linkUrl) {
+      window.location.hash = linkUrl;
+    }
+  };
 
   const currentClientProject = clientActiveProject || projects[0];
 
@@ -170,19 +198,14 @@ export const Navbar: React.FC = () => {
               {/* Notification Bell */}
               <div className="relative">
                 <button
-                  onClick={() => {
-                    setShowNotifications(!showNotifications);
-                    if (!showNotifications && unreadCount > 0) {
-                      markNotificationsRead();
-                    }
-                  }}
-                  className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center transition-colors relative"
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center transition-colors relative cursor-pointer"
                   aria-label="View notifications"
                 >
                   <Bell size={16} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 text-black text-[10px] font-bold rounded-full flex items-center justify-center font-mono">
-                      {unreadCount}
+                  {liveUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 text-black text-[10px] font-bold rounded-full flex items-center justify-center font-mono animate-pulse">
+                      {liveUnreadCount > 9 ? '9+' : liveUnreadCount}
                     </span>
                   )}
                 </button>
@@ -191,28 +214,70 @@ export const Navbar: React.FC = () => {
                 {showNotifications && (
                   <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-4 z-50">
                     <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
-                      <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Activity Alerts</span>
-                      <button 
-                        onClick={() => setShowNotifications(false)}
-                        className="text-zinc-500 hover:text-zinc-300"
-                      >
-                        <X size={14} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Activity Alerts</span>
+                        {liveUnreadCount > 0 && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
+                            {liveUnreadCount} unread
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {liveUnreadCount > 0 && (
+                          <button
+                            onClick={markAllAsRead}
+                            className="text-[11px] text-zinc-400 hover:text-emerald-400 transition-colors font-medium cursor-pointer"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => setShowNotifications(false)}
+                          className="text-zinc-500 hover:text-zinc-300 cursor-pointer p-0.5"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                      {notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80 text-xs hover:border-zinc-700 transition-colors"
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold text-emerald-400">{n.title}</span>
-                            <span className="text-[10px] text-zinc-400 font-mono">{n.time}</span>
-                          </div>
-                          <p className="text-zinc-300 leading-relaxed">{n.message}</p>
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                      {liveNotifications.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-zinc-500">
+                          No notifications yet.
                         </div>
-                      ))}
+                      ) : (
+                        liveNotifications.map((n) => {
+                          const isUnread = !n.read_at;
+                          return (
+                            <div
+                              key={n.id}
+                              onClick={() => handleNotificationClick(n.id, n.link_url)}
+                              className={`p-3 rounded-xl border text-xs transition-colors cursor-pointer ${
+                                isUnread
+                                  ? 'bg-zinc-950 border-emerald-500/30 hover:border-emerald-500/60'
+                                  : 'bg-zinc-950/40 border-zinc-800/80 hover:border-zinc-700 opacity-80'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {isUnread && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                                  )}
+                                  <span className={`truncate font-semibold ${isUnread ? 'text-emerald-300' : 'text-zinc-300'}`}>
+                                    {n.title}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-zinc-500 font-mono shrink-0 ml-2">
+                                  {formatNotifTime(n.created_at)}
+                                </span>
+                              </div>
+                              <p className="text-zinc-400 leading-relaxed text-[11px] line-clamp-2">
+                                {n.message}
+                              </p>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 )}

@@ -71,4 +71,5 @@ export interface AuthContextType {
   }) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
   refreshProfileAndOrg: () => Promise<void>;
+  signInAsDemo: (email?: string, name?: string, role?: OrganizationRole) => void;
 }
