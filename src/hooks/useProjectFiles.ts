@@ -95,10 +95,8 @@ export function useProjectFiles(projectId?: string | null) {
       const { fileId, storagePath, signedUrl, token } = await urlRes.json();
       setUploadProgress(40);
 
-      // Step B: Upload directly to Supabase Storage with a browser-native TUS uploader.
-      // Important: do NOT hand the entire File to a third-party uploader. Android browsers
-      // can throw "low memory" when a library inspects/holds a very large File. We only ever
-      // create a small Blob with File.slice(), then PATCH that chunk to Supabase.
+      // Step B: Upload directly to Supabase Storage using Supabase's supported TUS client flow.
+      // TUS sends the File in 6 MB chunks; the browser does not buffer the whole WAV.
       if (!token) {
         throw new Error('Large file upload could not be prepared securely.');
       }
@@ -106,114 +104,40 @@ export function useProjectFiles(projectId?: string | null) {
       const projectRef = new URL(getSupabase().supabaseUrl).hostname.split('.')[0];
       const resumableEndpoint =
         `https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`;
-      const chunkSize = 6 * 1024 * 1024;
+      const { Upload } = await import('tus-js-client');
 
-      const encodeMetadata = (value: string) => {
-        const bytes = new TextEncoder().encode(value);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i += 0x8000) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-        }
-        return btoa(binary);
-      };
+      await new Promise<void>((resolve, reject) => {
+        const upload = new Upload(file, {
+          endpoint: resumableEndpoint,
+          headers: {
+            'x-signature': token,
+          },
+          metadata: {
+            bucketName: 'project-files',
+            objectName: storagePath,
+            contentType: file.type || 'application/octet-stream',
+          },
+          chunkSize: 6 * 1024 * 1024,
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          uploadDataDuringCreation: true,
+          storeFingerprintForResuming: false,
+          removeFingerprintOnSuccess: true,
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const percent = Math.min(
+              84,
+              Math.max(1, Math.round((bytesUploaded / bytesTotal) * 84))
+            );
+            setUploadProgress(percent);
+          },
+          onError: (uploadError) => {
+            console.error('[MixFlow Files] TUS upload error:', uploadError);
+            reject(uploadError);
+          },
+          onSuccess: () => resolve(),
+        });
 
-      const tusHeaders = {
-        'Tus-Resumable': '1.0.0',
-        'x-signature': token,
-      };
-
-      // Create one unique TUS upload resource. Supabase then gives us a URL to which
-      // each small chunk is PATCHed. The original File never gets buffered in memory.
-      const createRes = await fetch(resumableEndpoint, {
-        method: 'POST',
-        headers: {
-          ...tusHeaders,
-          'Upload-Length': String(file.size),
-          'Upload-Metadata': [
-            `bucketName ${encodeMetadata('project-files')}`,
-            `objectName ${encodeMetadata(storagePath)}`,
-            `contentType ${encodeMetadata(file.type || 'application/octet-stream')}`,
-          ].join(','),
-        },
+        upload.start();
       });
-
-      if (!createRes.ok) {
-        const detail = await createRes.text().catch(() => '');
-        throw new Error(detail || `Unable to start large-file upload (HTTP ${createRes.status}).`);
-      }
-
-      const locationHeader = createRes.headers.get('Location');
-      if (!locationHeader) {
-        throw new Error('Supabase did not return a resumable upload URL.');
-      }
-      const uploadUrl = new URL(locationHeader, resumableEndpoint).toString();
-
-      let offset = 0;
-      const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
-
-      while (offset < file.size) {
-        const chunkEnd = Math.min(offset + chunkSize, file.size);
-        const chunk = file.slice(offset, chunkEnd);
-        let uploaded = false;
-
-        for (let attempt = 0; attempt < 5 && !uploaded; attempt++) {
-          try {
-            const patchRes = await fetch(uploadUrl, {
-              method: 'PATCH',
-              headers: {
-                ...tusHeaders,
-                'Content-Type': 'application/offset+octet-stream',
-                'Upload-Offset': String(offset),
-              },
-              body: chunk,
-            });
-
-            if (patchRes.ok) {
-              const nextOffset = Number(patchRes.headers.get('Upload-Offset'));
-              if (!Number.isFinite(nextOffset) || nextOffset <= offset) {
-                throw new Error('Supabase returned an invalid upload offset.');
-              }
-              offset = Math.min(file.size, nextOffset);
-              uploaded = true;
-              const percent = Math.min(84, Math.max(1, Math.round((offset / file.size) * 84)));
-              setUploadProgress(percent);
-              break;
-            }
-
-            if (patchRes.status === 409 || patchRes.status === 412 || patchRes.status >= 500) {
-              // Recover the authoritative offset after a transient/interrupted PATCH.
-              const headRes = await fetch(uploadUrl, {
-                method: 'HEAD',
-                headers: tusHeaders,
-              });
-              if (headRes.ok) {
-                const serverOffset = Number(headRes.headers.get('Upload-Offset'));
-                if (Number.isFinite(serverOffset) && serverOffset >= 0 && serverOffset <= file.size) {
-                  offset = serverOffset;
-                  if (offset >= file.size) {
-                    uploaded = true;
-                    break;
-                  }
-                }
-              }
-            } else {
-              const detail = await patchRes.text().catch(() => '');
-              throw new Error(detail || `Upload chunk failed (HTTP ${patchRes.status}).`);
-            }
-          } catch (chunkErr: any) {
-            if (attempt === 4) throw chunkErr;
-          }
-
-          if (!uploaded) {
-            await new Promise((resolve) => setTimeout(resolve, [1000, 2000, 4000, 8000, 12000][attempt]));
-          }
-        }
-
-        if (!uploaded && offset < file.size) {
-          throw new Error(`Upload stopped around ${Math.round((offset / file.size) * 100)}%. Please try again.`);
-        }
-      }
-
       setUploadProgress(85);
       // Step C: Confirm upload with backend & register file metadata
       const confirmRes = await fetch(`/api/projects/${projectId}/files/confirm`, {
