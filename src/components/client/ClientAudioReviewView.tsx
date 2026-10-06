@@ -19,7 +19,9 @@ import {
   User,
   ChevronDown,
   ChevronUp,
-  Info
+  Info,
+  GitCompareArrows,
+  ListMusic
 } from 'lucide-react';
 import { ProjectFileVersionRecord, ProjectFeedbackRecord } from '../../types/versionFeedback';
 import { getSupabase } from '../../lib/supabase';
@@ -36,6 +38,8 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const [feedbackList, setFeedbackList] = useState<ProjectFeedbackRecord[]>([]);
   const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'open' | 'resolved'>('all');
   const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
+  const [comparePlaying, setComparePlaying] = useState<'a' | 'b' | null>(null);
   
   // Audio Playback State
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -254,6 +258,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const selectedSong = songs.find((s) => s.id === selectedSongId);
   const selectedVersion = versions.find((v) => v.id === selectedVersionId);
   const latestVersion = versions.length > 0 ? versions[versions.length - 1] : null;
+  const compareVersion = versions.find((v) => v.id === compareVersionId) || null;
+  const changeCount = selectedVersion?.feedback_count || 0;
+  const jumpToNextChange = () => {
+    const next = feedbackList.find((fb) => Number(fb.timestamp_seconds) > currentTime && fb.status !== 'resolved');
+    if (next) handleSeek(Number(next.timestamp_seconds));
+  };
   const isSelectedLatest = selectedVersion?.id === latestVersion?.id;
 
   // Filter feedback
@@ -273,10 +283,10 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
         <div>
           <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
             <Music size={18} className="text-emerald-400" />
-            <span>Mix Revision & Audio Review</span>
+            <span>Mix Review</span>
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Listen to the latest mix revision, leave timestamped notes for the engineer, and review version history.
+            Review the latest mix, jump between requested changes, compare passes, and leave timestamped notes.
           </p>
         </div>
 
@@ -325,7 +335,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                         : 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60'
                     }`}
                   >
-                    <span>Mix v{ver.version_number}</span>
+                    <span>V{ver.version_number}</span>
                     {isLatest && (
                       <span className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase ${isSelected ? 'bg-black/20 text-black' : 'bg-emerald-500/10 text-emerald-400'}`}>
                         Latest
@@ -357,14 +367,14 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               <div className="flex items-center gap-2.5 text-amber-300">
                 <Info size={16} className="shrink-0 text-amber-400" />
                 <span>
-                  You are currently reviewing <strong>Mix v{selectedVersion?.version_number}</strong> (earlier pass). A newer mix revision (<strong>Mix v{latestVersion.version_number}</strong>) is available.
+                  You are currently reviewing <strong>V{selectedVersion?.version_number}</strong> (earlier pass). A newer mix revision (<strong>V{latestVersion.version_number}</strong>) is available.
                 </span>
               </div>
               <button
                 onClick={() => setSelectedVersionId(latestVersion.id)}
                 className="px-3 py-1.5 bg-amber-500 text-black font-bold text-xs rounded-xl hover:bg-amber-400 transition cursor-pointer shrink-0"
               >
-                Switch to Latest Mix v{latestVersion.version_number}
+                Switch to Latest V{latestVersion.version_number}
               </button>
             </div>
           )}
@@ -400,7 +410,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                       return (
                         <tr key={ver.id} className={`hover:bg-zinc-900/40 transition ${isCurrent ? 'bg-zinc-900/30' : ''}`}>
                           <td className="py-2.5 font-bold text-white flex items-center gap-1.5">
-                            <span>Mix v{ver.version_number}</span>
+                            <span>V{ver.version_number}</span>
                             {isLatest && (
                               <span className="text-[9px] font-mono px-1.5 py-0.2 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/30">
                                 LATEST
@@ -448,6 +458,36 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             </div>
           )}
 
+          {/* Review summary + quick actions */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="text-[11px] uppercase tracking-wider text-emerald-400 font-bold">Current review</div>
+              <div className="mt-1 text-xl font-extrabold text-white">V{selectedVersion?.version_number}</div>
+              <div className="text-xs text-zinc-500 mt-1">{isSelectedLatest ? 'Latest version' : 'Earlier version'}</div>
+            </div>
+            <button onClick={jumpToNextChange} disabled={!feedbackList.some(f => Number(f.timestamp_seconds) > currentTime && f.status !== 'resolved')} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-left hover:border-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              <div className="flex items-center gap-2 text-sm font-bold text-white"><ListMusic size={16} className="text-emerald-400"/>Jump to next change</div>
+              <div className="text-xs text-zinc-500 mt-1">{openCount} open note{openCount === 1 ? '' : 's'} on this version</div>
+            </button>
+            <button onClick={() => setShowHistory(true)} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-left hover:border-zinc-700">
+              <div className="flex items-center gap-2 text-sm font-bold text-white"><History size={16} className="text-emerald-400"/>Revision history</div>
+              <div className="text-xs text-zinc-500 mt-1">{versions.length} saved pass{versions.length === 1 ? '' : 'es'}</div>
+            </button>
+          </div>
+
+          {compareVersion && selectedVersion && compareVersion.id !== selectedVersion.id && (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-bold text-white"><GitCompareArrows size={16} className="text-emerald-400"/>A/B compare</div>
+                <div className="text-xs text-zinc-500 mt-1">A = V{selectedVersion.version_number} · B = V{compareVersion.version_number}</div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setComparePlaying('a')} className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white">Play A</button>
+                <button onClick={() => setComparePlaying('b')} className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold">Play B</button>
+              </div>
+            </div>
+          )}
+
           {/* Audio Player Card */}
           <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-5 space-y-4 shadow-inner">
             <audio
@@ -466,6 +506,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               onEnded={() => setIsPlaying(false)}
             />
 
+              <div className="flex items-center gap-2">
+                <select value={compareVersionId || ''} onChange={e => setCompareVersionId(e.target.value || null)} className="bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-1.5 text-[11px] text-zinc-300">
+                  <option value="">A/B compare…</option>
+                  {versions.filter(v => v.id !== selectedVersionId).map(v => <option key={v.id} value={v.id}>Compare V{v.version_number}</option>)}
+                </select>
+              </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -481,7 +527,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                  Mix Pass v{selectedVersion?.version_number} • Secure Stream
+                  V{selectedVersion?.version_number} • Secure Stream
                   {selectedVersion?.notes && <span className="text-zinc-400 ml-2">“{selectedVersion.notes}”</span>}
                 </p>
               </div>
@@ -514,7 +560,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                   ) : (
                     <>
                       <Play size={14} />
-                      <span>Play Mix</span>
+                      <span>Play</span>
                     </>
                   )}
                 </button>
@@ -557,6 +603,13 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               </p>
             )}
           </div>
+
+          {comparePlaying && compareVersion && (
+            <div className="text-xs text-zinc-400 border border-zinc-800 rounded-xl px-3 py-2 bg-zinc-950/50">
+              Compare mode selected: {comparePlaying === 'a' ? 'A' : 'B'} = V{comparePlaying === 'a' ? selectedVersion?.version_number : compareVersion.version_number}. Use the version selector above to switch the primary player.
+              <button onClick={() => setComparePlaying(null)} className="ml-2 text-emerald-400 hover:underline">Close</button>
+            </div>
+          )}
 
           {/* Feedback Section */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
@@ -630,7 +683,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                   ) : (
                     <>
                       <Send size={13} />
-                      <span>Post Note on Mix v{selectedVersion?.version_number}</span>
+                      <span>Post Note on V{selectedVersion?.version_number}</span>
                     </>
                   )}
                 </button>
@@ -642,7 +695,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-800/60">
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Clock size={14} className="text-zinc-400" />
-                  <span>Notes on Mix v{selectedVersion?.version_number}</span>
+                  <span>Notes on V{selectedVersion?.version_number}</span>
                 </h3>
 
                 {/* Filter Pills */}
