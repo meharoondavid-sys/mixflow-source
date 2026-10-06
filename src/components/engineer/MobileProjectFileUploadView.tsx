@@ -105,9 +105,9 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
             objectName: storagePath,
             contentType: selectedFile.type || 'application/octet-stream',
           },
-          chunkSize: 2 * 1024 * 1024,
+          chunkSize: 6 * 1024 * 1024,
           retryDelays: [0, 3000, 5000, 10000, 20000],
-          uploadDataDuringCreation: false,
+          uploadDataDuringCreation: true,
           storeFingerprintForResuming: false,
           removeFingerprintOnSuccess: true,
           onProgress: (uploaded, total) => {
