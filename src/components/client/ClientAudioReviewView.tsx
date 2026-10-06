@@ -359,6 +359,31 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
           </p>
         </div>
 
+        {/* Review status and sign-off actions */}
+        <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Project status</p>
+              <p className="text-sm font-bold text-white mt-0.5">{projectStatus === 'in_review' ? 'Ready for your review' : projectStatus === 'needs_revision' ? 'Revision requested' : projectStatus === 'approved' ? 'Mix approved' : projectStatus || 'Loading status...'}</p>
+            </div>
+            {canTakeReviewAction && (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button type="button" onClick={() => handleReviewAction('revision_requested')} disabled={reviewActionLoading} className="px-4 py-2 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 disabled:opacity-50 text-orange-300 text-xs font-bold transition cursor-pointer">
+                  {reviewActionLoading && reviewAction === 'revision_requested' ? 'Sending...' : 'Request Revision'}
+                </button>
+                <button type="button" onClick={() => handleReviewAction('mix_approved')} disabled={reviewActionLoading || openCount > 0} title={openCount > 0 ? 'Resolve all open feedback before approving' : 'Approve this mix as final'} className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-xs font-bold transition cursor-pointer">
+                  {reviewActionLoading && reviewAction === 'mix_approved' ? 'Approving...' : 'Approve Mix'}
+                </button>
+              </div>
+            )}
+          </div>
+          {!isSelectedLatest && latestVersion && <p className="text-[11px] text-amber-300">Switch to the latest version before approving or requesting changes.</p>}
+          {projectStatus === 'in_review' && openCount > 0 && <p className="text-[11px] text-zinc-500">Approve is locked until all open feedback on this version is resolved.</p>}
+          {reviewActionError && <p className="text-[11px] text-red-400 bg-red-950/30 border border-red-900/50 rounded-xl px-3 py-2">{reviewActionError}</p>}
+          {reviewAction === 'revision_requested' && <p className="text-[11px] text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 py-2">Revision requested. Your engineer has been notified.</p>}
+          {reviewAction === 'mix_approved' && <p className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">Mix approved. The engineer can now prepare the final delivery.</p>}
+        </div>
+
         {/* Song Selector */}
         {songs.length > 1 && (
           <div className="flex items-center gap-2">
