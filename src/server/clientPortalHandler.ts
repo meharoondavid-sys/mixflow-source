@@ -427,3 +427,169 @@ export async function handleGetClientPortalFileDownloadUrl(
     },
   };
 }
+
+
+
+/**
+ * 5. POST /api/client-portal/projects/:projectId/files/upload-url
+ * Generates a signed upload URL for a client-owned project file.
+ */
+export async function handleCreateClientFileUploadUrl(
+  ctx: ClientPortalHandlerContext & { projectId: string; body: { fileName: string; fileType: string; fileSize: number; songId?: string | null } }
+): Promise<{ status: number; body: any }> {
+  const authRes = await authenticateCaller(ctx);
+  if (authRes.errorStatus) return { status: authRes.errorStatus, body: authRes.errorBody };
+  const callerUser = authRes.callerUser!;
+
+  const clientFactory = ctx.createClientFn || createClient;
+  const adminClient = clientFactory(ctx.supabaseUrl, ctx.supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const clients = await getAssociatedClients(
+    adminClient,
+    callerUser.id,
+    callerUser.email,
+    callerUser.email_confirmed_at != null
+  );
+  if (!clients.length) {
+    return { status: 403, body: { error: 'Forbidden: No client profile associated with this account.' } };
+  }
+
+  const { data: project, error: projectErr } = await adminClient
+    .from('projects')
+    .select('id, organization_id, client_id')
+    .eq('id', ctx.projectId)
+    .maybeSingle();
+
+  if (projectErr || !project) return { status: 404, body: { error: 'Project not found.' } };
+  if (!clients.some((client: any) => client.id === project.client_id)) {
+    return { status: 403, body: { error: 'Forbidden: You do not have access to this project.' } };
+  }
+
+  if (!ctx.body.fileName?.trim()) {
+    return { status: 400, body: { error: 'File name is required.' } };
+  }
+
+  if (ctx.body.songId) {
+    const { data: song } = await adminClient
+      .from('project_songs')
+      .select('id')
+      .eq('id', ctx.body.songId)
+      .eq('project_id', ctx.projectId)
+      .maybeSingle();
+    if (!song) return { status: 400, body: { error: 'Invalid song selected.' } };
+  }
+
+  const fileId = crypto.randomUUID();
+  const sanitizedName = ctx.body.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `${project.organization_id}/${ctx.projectId}/${fileId}_${sanitizedName}`;
+
+  const { data: uploadInfo, error: uploadErr } = await adminClient.storage
+    .from('project-files')
+    .createSignedUploadUrl(storagePath);
+
+  if (uploadErr || !uploadInfo) {
+    return { status: 500, body: { error: uploadErr?.message || 'Failed to prepare file upload.' } };
+  }
+
+  return {
+    status: 200,
+    body: { fileId, storagePath, signedUrl: uploadInfo.signedUrl, token: uploadInfo.token },
+  };
+}
+
+/**
+ * 6. POST /api/client-portal/projects/:projectId/files/confirm
+ * Confirms a client-owned project file after direct storage upload.
+ */
+export async function handleConfirmClientFileUpload(
+  ctx: ClientPortalHandlerContext & { projectId: string; body: { fileId: string; storagePath: string; fileName: string; fileType: string; fileSize: number; songId?: string | null } }
+): Promise<{ status: number; body: any }> {
+  const authRes = await authenticateCaller(ctx);
+  if (authRes.errorStatus) return { status: authRes.errorStatus, body: authRes.errorBody };
+  const callerUser = authRes.callerUser!;
+
+  const clientFactory = ctx.createClientFn || createClient;
+  const adminClient = clientFactory(ctx.supabaseUrl, ctx.supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const clients = await getAssociatedClients(
+    adminClient,
+    callerUser.id,
+    callerUser.email,
+    callerUser.email_confirmed_at != null
+  );
+  if (!clients.length) return { status: 403, body: { error: 'Forbidden: No client profile associated with this account.' } };
+
+  const { data: project } = await adminClient
+    .from('projects')
+    .select('id, organization_id, client_id')
+    .eq('id', ctx.projectId)
+    .maybeSingle();
+
+  if (!project) return { status: 404, body: { error: 'Project not found.' } };
+  if (!clients.some((client: any) => client.id === project.client_id)) {
+    return { status: 403, body: { error: 'Forbidden: You do not have access to this project.' } };
+  }
+
+  const expectedPrefix = `${project.organization_id}/${ctx.projectId}/`;
+  const expectedFilePrefix = expectedPrefix + ctx.body.fileId + '_';
+  if (!ctx.body.storagePath.startsWith(expectedFilePrefix)) {
+    return { status: 400, body: { error: 'Security violation: Invalid project file path.' } };
+  }
+
+  if (ctx.body.songId) {
+    const { data: song } = await adminClient
+      .from('project_songs')
+      .select('id')
+      .eq('id', ctx.body.songId)
+      .eq('project_id', ctx.projectId)
+      .maybeSingle();
+    if (!song) return { status: 400, body: { error: 'Invalid song selected.' } };
+  }
+
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('full_name, email')
+    .eq('id', callerUser.id)
+    .maybeSingle();
+
+  const now = new Date().toISOString();
+  const fileRecord = {
+    id: ctx.body.fileId,
+    organization_id: project.organization_id,
+    project_id: ctx.projectId,
+    song_id: ctx.body.songId || null,
+    name: ctx.body.fileName.trim(),
+    storage_path: ctx.body.storagePath,
+    file_type: ctx.body.fileType || 'application/octet-stream',
+    file_size: Math.max(0, Number(ctx.body.fileSize) || 0),
+    uploaded_by: callerUser.id,
+    uploader_name: profile?.full_name || callerUser.email || 'Client',
+    uploader_email: callerUser.email || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  const { error: insertErr } = await adminClient.from('project_files').insert({
+    id: fileRecord.id,
+    organization_id: fileRecord.organization_id,
+    project_id: fileRecord.project_id,
+    song_id: fileRecord.song_id,
+    name: fileRecord.name,
+    storage_path: fileRecord.storage_path,
+    file_type: fileRecord.file_type,
+    file_size: fileRecord.file_size,
+    uploaded_by: fileRecord.uploaded_by,
+    created_at: fileRecord.created_at,
+    updated_at: fileRecord.updated_at,
+  });
+
+  if (insertErr) {
+    return { status: 500, body: { error: 'Failed to record the uploaded file.' } };
+  }
+
+  return { status: 201, body: { file: fileRecord } };
+}
