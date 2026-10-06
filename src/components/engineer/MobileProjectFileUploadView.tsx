@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Upload } from 'lucide-react';
-import { getSupabase } from '../../lib/supabase';
+import { getSupabase, getSupabaseAnonKey } from '../../lib/supabase';
 
 interface MobileProjectFileUploadViewProps {
   projectId: string;
@@ -99,7 +99,10 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
       await new Promise<void>((resolve, reject) => {
         const upload = new Upload(selectedFile, {
           endpoint,
-          headers: { 'x-signature': token },
+          headers: {
+            apikey: getSupabaseAnonKey(),
+            'x-signature': token,
+          },
           metadata: {
             bucketName: 'project-files',
             objectName: storagePath,
