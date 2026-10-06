@@ -119,7 +119,6 @@ export function useProjectFiles(projectId?: string | null) {
           },
           chunkSize: 6 * 1024 * 1024,
           retryDelays: [0, 3000, 5000, 10000, 20000],
-          uploadDataDuringCreation: true,
           // Do not reuse a TUS URL from an earlier attempt: each upload gets a new
           // signed storage path/token from the server. Reusing an older URL can attach
           // chunks to the wrong object and make confirmation fail.
