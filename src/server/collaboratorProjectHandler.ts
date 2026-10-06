@@ -158,6 +158,71 @@ export async function handleCollaboratorRequestVersionUpload(ctx: Ctx) {
   return { status: 200, body: { versionId, storagePath, signedUrl: upload.signedUrl, token: upload.token } };
 }
 
+export async function handleCollaboratorListFeedback(ctx: Ctx) {
+  const s = await projectAccess(ctx);
+  if (!s) return { status: 401, body: { error: 'Invalid or expired collaborator session.' } };
+
+  const client = db(ctx);
+  const { data, error } = await client
+    .from('project_feedback')
+    .select('id, project_id, song_id, version_id, author_name, author_role, timestamp_seconds, comment, status, created_at, resolved_at')
+    .eq('project_id', ctx.projectId)
+    .order('created_at', { ascending: true });
+
+  if (error) return { status: 500, body: { error: 'Failed to retrieve project feedback.' } };
+  return { status: 200, body: { feedback: data || [] } };
+}
+
+export async function handleCollaboratorCreateFeedback(ctx: Ctx) {
+  const s = await projectAccess(ctx);
+  if (!s) return { status: 401, body: { error: 'Invalid or expired collaborator session.' } };
+
+  const b = ctx.body || {};
+  const timestampSeconds = Number(b.timestampSeconds);
+  const comment = typeof b.comment === 'string' ? b.comment.trim() : '';
+  if (!b.versionId || !Number.isFinite(timestampSeconds) || timestampSeconds < 0 || !comment) {
+    return { status: 400, body: { error: 'versionId, timestampSeconds and comment are required.' } };
+  }
+
+  const client = db(ctx);
+  const { data: version } = await client
+    .from('project_file_versions')
+    .select('id, project_id, song_id')
+    .eq('id', b.versionId)
+    .eq('project_id', ctx.projectId)
+    .maybeSingle();
+  if (!version) return { status: 400, body: { error: 'Version does not belong to this project.' } };
+
+  const { data: invite } = await client
+    .from('project_collaborator_invites')
+    .select('name, email')
+    .eq('id', (await client.from('project_collaborator_sessions').select('invite_id').eq('id', s.id).maybeSingle()).data?.invite_id || '')
+    .maybeSingle();
+
+  const authorName = invite?.name || invite?.email || 'Collaborator';
+
+  const { data: feedback, error } = await client
+    .from('project_feedback')
+    .insert({
+      organization_id: (await client.from('projects').select('organization_id').eq('id', ctx.projectId).single()).data?.organization_id,
+      project_id: ctx.projectId,
+      song_id: b.songId || version.song_id || null,
+      version_id: b.versionId,
+      client_id: null,
+      author_id: null,
+      author_name: authorName,
+      author_role: 'collaborator',
+      timestamp_seconds: timestampSeconds,
+      comment,
+      status: 'open',
+    })
+    .select()
+    .single();
+
+  if (error || !feedback) return { status: 500, body: { error: 'Failed to save collaborator feedback.' } };
+  return { status: 201, body: { feedback } };
+}
+
 export async function handleCollaboratorConfirmVersion(ctx: Ctx) {
   const s = await projectAccess(ctx);
   if (!s) return { status: 401, body: { error: 'Invalid or expired collaborator session.' } };
