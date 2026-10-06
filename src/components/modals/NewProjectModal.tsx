@@ -381,8 +381,6 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500"
               />
             </div>
-
-            </div>
           </div>
 
           {/* Production Services Scope Selector */}
