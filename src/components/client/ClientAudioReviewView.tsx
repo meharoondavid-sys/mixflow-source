@@ -303,6 +303,38 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   };
   const isSelectedLatest = selectedVersion?.id === latestVersion?.id;
 
+  const canTakeReviewAction = projectStatus === 'in_review' && isSelectedLatest && !!selectedVersionId;
+
+  const handleReviewAction = async (action: 'revision_requested' | 'mix_approved') => {
+    if (!selectedVersionId || !canTakeReviewAction || reviewActionLoading) return;
+    if (action === 'mix_approved' && openCount > 0) {
+      setReviewActionError('Resolve all open feedback before approving the mix.');
+      return;
+    }
+    setReviewActionLoading(true);
+    setReviewActionError(null);
+    try {
+      const sb = getSupabase();
+      const { error } = await sb.rpc('client_review_action', {
+        p_project_id: projectId,
+        p_version_id: selectedVersionId,
+        p_action: action,
+        p_note: null,
+      });
+      if (error) throw error;
+      setProjectStatus(action === 'revision_requested' ? 'needs_revision' : 'approved');
+      setReviewAction(action);
+      setVersions(prev => prev.map(v => v.id === selectedVersionId
+        ? { ...v, status: action === 'revision_requested' ? 'revision_requested' : 'approved' }
+        : v
+      ));
+    } catch (err: any) {
+      setReviewActionError(err.message || 'Unable to update the review status.');
+    } finally {
+      setReviewActionLoading(false);
+    }
+  };
+
   // Filter feedback
   const filteredFeedback = feedbackList.filter((fb) => {
     if (feedbackFilter === 'open') return fb.status === 'open';
