@@ -14,6 +14,7 @@ export interface ProjectFileVersionRecord {
   uploaded_by: string | null;
   uploader_name?: string;
   created_at: string;
+  status: 'ready' | 'in_review' | 'revision_requested' | 'approved' | 'superseded';
   feedback_count?: number;
   open_feedback_count?: number;
   resolved_feedback_count?: number;
