@@ -87,7 +87,16 @@ const AppContent: React.FC = () => {
           setCurrentView('client');
         }
       } else if (hash.startsWith('#/client') || hash.startsWith('#client')) {
-        setCurrentView('client');
+        // Studio staff should always stay in the Engineer Console when using
+        // normal client routes. Client review links remain explicitly supported
+        // through #/review/... above.
+        if (isStudioStaff) {
+          setCurrentView('engineer');
+          setActiveProjectId(null);
+          setEngineerTab('projects');
+        } else {
+          setCurrentView('client');
+        }
       } else if (hash.startsWith('#/project/') || hash.startsWith('#project/')) {
         const pId = hash.replace(/^#\/?project\//, '');
         if (pId) {
