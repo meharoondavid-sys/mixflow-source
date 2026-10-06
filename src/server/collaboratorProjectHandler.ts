@@ -193,18 +193,45 @@ export async function handleCollaboratorCreateFeedback(ctx: Ctx) {
     .maybeSingle();
   if (!version) return { status: 400, body: { error: 'Version does not belong to this project.' } };
 
-  const { data: invite } = await client
+  const { data: sessionRow, error: sessionErr } = await client
+    .from('project_collaborator_sessions')
+    .select('invite_id, project_id')
+    .eq('id', s.id)
+    .eq('project_id', ctx.projectId)
+    .maybeSingle();
+  if (sessionErr || !sessionRow) return { status: 401, body: { error: 'Collaborator session could not be verified.' } };
+
+  const { data: invite, error: inviteErr } = await client
     .from('project_collaborator_invites')
     .select('name, email')
-    .eq('id', (await client.from('project_collaborator_sessions').select('invite_id').eq('id', s.id).maybeSingle()).data?.invite_id || '')
+    .eq('id', sessionRow.invite_id)
+    .eq('project_id', ctx.projectId)
     .maybeSingle();
+  if (inviteErr || !invite) return { status: 401, body: { error: 'Collaborator identity could not be verified.' } };
 
-  const authorName = invite?.name || invite?.email || 'Collaborator';
+  const { data: project, error: projectErr } = await client
+    .from('projects')
+    .select('id, organization_id')
+    .eq('id', ctx.projectId)
+    .maybeSingle();
+  if (projectErr || !project) return { status: 404, body: { error: 'Project not found.' } };
+
+  if (b.songId) {
+    const { data: song } = await client
+      .from('project_songs')
+      .select('id')
+      .eq('id', b.songId)
+      .eq('project_id', ctx.projectId)
+      .maybeSingle();
+    if (!song) return { status: 400, body: { error: 'Invalid song ID.' } };
+  }
+
+  const authorName = invite.name || invite.email || 'Collaborator';
 
   const { data: feedback, error } = await client
     .from('project_feedback')
     .insert({
-      organization_id: (await client.from('projects').select('organization_id').eq('id', ctx.projectId).single()).data?.organization_id,
+      organization_id: project.organization_id,
       project_id: ctx.projectId,
       song_id: b.songId || version.song_id || null,
       version_id: b.versionId,
