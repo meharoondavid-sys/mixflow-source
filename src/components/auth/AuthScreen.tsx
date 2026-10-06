@@ -15,8 +15,6 @@ import {
   Bug
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getSupabaseUrl } from '../../lib/supabase';
-import { AuthDiagnosticError } from '../../types/auth';
 
 export const AuthScreen: React.FC = () => {
   const { 
@@ -24,8 +22,6 @@ export const AuthScreen: React.FC = () => {
     signUp, 
     resetPassword,
     updatePassword, 
-    isConfigured, 
-    setAnonKeyManually, 
     pendingConfirmationEmail, 
     setPendingConfirmationEmail,
     signInAsDemo
@@ -41,23 +37,14 @@ export const AuthScreen: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [studioName, setStudioName] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
-  const [formDiagnostic, setFormDiagnostic] = useState<AuthDiagnosticError | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [anonKeyInput, setAnonKeyInput] = useState('');
-  const [showKeyConfig, setShowKeyConfig] = useState(!isConfigured);
+  const isDeveloperPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    setFormDiagnostic(null);
     setSuccessNotice(null);
-
-    if (!isConfigured) {
-      setFormError('Please configure your Supabase Anon Key to connect to project amgowwvresmsysofwqsp.');
-      setShowKeyConfig(true);
-      return;
-    }
 
     if (mode === 'forgot') {
       if (!email.trim()) { setFormError('Please enter your email address.'); return; }
@@ -104,7 +91,6 @@ export const AuthScreen: React.FC = () => {
 
       if (res.error) {
         setFormError(res.error.message);
-        setFormDiagnostic(res.diagnostic || null);
       } else if (res.requiresConfirmation) {
         setPendingConfirmationEmail(email.trim());
       }
@@ -120,17 +106,8 @@ export const AuthScreen: React.FC = () => {
 
       if (res.error) {
         setFormError(res.error.message);
-        setFormDiagnostic(res.diagnostic || null);
       }
     }
-  };
-
-  const handleSaveAnonKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!anonKeyInput.trim()) return;
-    setAnonKeyManually(anonKeyInput.trim());
-    setShowKeyConfig(false);
-    setFormError(null);
   };
 
   return (
@@ -155,46 +132,6 @@ export const AuthScreen: React.FC = () => {
           </p>
         </div>
 
-        {/* Supabase Connection Setup Box (if anon key missing) */}
-        {showKeyConfig && (
-          <div className="bg-zinc-900 border border-amber-500/40 rounded-2xl p-5 space-y-3 shadow-xl">
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold">
-              <KeyRound size={15} />
-              <span>Connect Supabase Project (amgowwvresmsysofwqsp)</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 leading-relaxed">
-              Target Supabase instance: <code className="text-zinc-300 font-mono">https://amgowwvresmsysofwqsp.supabase.co</code> (Tokyo).
-              Enter your project <strong>anon key</strong> to enable live authentication and real database transactions:
-            </p>
-            <form onSubmit={handleSaveAnonKey} className="space-y-2">
-              <input
-                type="text"
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                value={anonKeyInput}
-                onChange={(e) => setAnonKeyInput(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500 font-mono"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition-colors"
-                >
-                  Save Supabase Key
-                </button>
-                {isConfigured && (
-                  <button
-                    type="button"
-                    onClick={() => setShowKeyConfig(false)}
-                    className="px-3 py-2 bg-zinc-800 text-zinc-300 text-xs rounded-xl"
-                  >
-                    Close
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-        )}
-
         {/* Main Authentication Card */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
           {pendingConfirmationEmail ? (
@@ -207,7 +144,7 @@ export const AuthScreen: React.FC = () => {
               <div className="space-y-2">
                 <h3 className="text-base font-bold text-white tracking-tight">Email Confirmation Required</h3>
                 <p className="text-xs text-zinc-300 leading-relaxed">
-                  Your Supabase user and profile were created! We sent a verification link to:
+                  Your MixFlow account has been created. We sent a verification link to:
                 </p>
                 <div className="p-2.5 bg-zinc-950 rounded-xl border border-zinc-800 font-mono text-xs text-emerald-400 break-all">
                   {pendingConfirmationEmail}
@@ -327,7 +264,7 @@ export const AuthScreen: React.FC = () => {
                     <div className="leading-relaxed font-medium">{formError}</div>
                   </div>
 
-                  {formDiagnostic && (
+                  {isDeveloperPreview && formDiagnostic && (
                     <div className="mt-2 pt-2 border-t border-zinc-800 text-[11px] font-mono text-zinc-400 space-y-1 bg-black/40 rounded-lg p-2.5">
                       <div className="text-red-300 font-semibold flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
@@ -353,14 +290,13 @@ export const AuthScreen: React.FC = () => {
                   {mode === 'signin' && (
                     <div className="mt-3 pt-3 border-t border-red-500/20 space-y-2">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
-                        <span className="text-zinc-300">No account created in this Supabase database yet?</span>
+                        <span className="text-zinc-300">Don't have a MixFlow account yet?</span>
                         <button
                           type="button"
                           onClick={() => {
                             setMode('signup');
                             setFormError(null);
-                            setFormDiagnostic(null);
-                          }}
+                                                      }}
                           className="text-emerald-400 hover:text-emerald-300 font-bold underline underline-offset-2 cursor-pointer text-left sm:text-right"
                         >
                           Sign up as new studio →
@@ -501,15 +437,10 @@ export const AuthScreen: React.FC = () => {
 
           {/* Quick Demo Credentials Assistant */}
           <div className="pt-2 border-t border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400">
-            <span>Supabase Auth Session Persistence</span>
+            <span>Secure account session</span>
             <button
               type="button"
-              onClick={() => setShowKeyConfig(!showKeyConfig)}
-              className="text-zinc-400 hover:text-emerald-400 flex items-center gap-1 transition-colors"
-            >
-              <KeyRound size={12} />
-              <span>{isConfigured ? 'Key Configured ✓' : 'Config Key'}</span>
-            </button>
+              
           </div>
           </>
           )}
@@ -518,7 +449,7 @@ export const AuthScreen: React.FC = () => {
         {/* Security / System Footer */}
         <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-400">
           <ShieldCheck size={14} className="text-emerald-400" />
-          <span>RLS & Database Triggers Protected · Supabase APAC (Tokyo)</span>
+          <span>Secure authentication · Your studio data is protected</span>
         </div>
       </div>
     </div>
