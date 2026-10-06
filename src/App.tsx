@@ -43,6 +43,7 @@ const AppContent: React.FC = () => {
   } = useApp();
 
   const isPasswordRecovery = window.location.hash.includes('type=recovery');
+  const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
   const collaboratorMatch = window.location.hash.match(/^#\/collaborator\/invite\/([^/]+)$/);
   const collaboratorToken = collaboratorMatch?.[1] || null;
@@ -232,8 +233,8 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {/* Floating View Switcher Dock for Instant Preview Toggling */}
-      <aside aria-label="Preview switcher" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-900/95 backdrop-blur-md border border-zinc-800 rounded-full px-2 py-1.5 shadow-2xl flex items-center gap-1.5 text-xs">
+      {/* Developer preview controls stay out of the normal client/studio experience. */}
+      {isPreviewMode && <aside aria-label="Preview switcher" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-900/95 backdrop-blur-md border border-zinc-800 rounded-full px-2 py-1.5 shadow-2xl flex items-center gap-1.5 text-xs">
         <span className="text-[11px] text-zinc-500 font-mono px-2 hidden sm:inline">Preview Mode:</span>
         <button
           onClick={() => {
@@ -290,7 +291,7 @@ const AppContent: React.FC = () => {
           <span className="hidden sm:inline">Download Code (.ZIP)</span>
           <span className="sm:hidden">ZIP</span>
         </button>
-      </aside>
+      </aside>}
 
       {/* Global Modals */}
       <NewProjectModal />
