@@ -421,6 +421,31 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
               </div>
             )}
 
+            {isUploading && (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Loader2 size={15} className="animate-spin text-emerald-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-emerald-300">Uploading file...</p>
+                      <p className="text-[10px] text-zinc-500 truncate">
+                        Large files upload in small chunks and can take some time.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-emerald-400 shrink-0">
+                    {uploadProgress ?? 0}%
+                  </span>
+                </div>
+                <div className="w-full bg-zinc-950 rounded-full h-2 overflow-hidden border border-zinc-800">
+                  <div
+                    className="bg-emerald-400 h-full transition-all duration-300"
+                    style={{ width: String(uploadProgress ?? 0) + '%' }}
+                  />
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleUploadSubmit} className="space-y-4 text-xs">
               {/* File Dropzone / Picker */}
               <div>
