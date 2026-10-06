@@ -114,15 +114,59 @@ export async function createNotification(
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Verify project belongs to organization if project_id is provided
+  // Verify project belongs to organization and recipient is authorized.
+  // This helper uses the service-role client, so authorization must be explicit here.
   if (project_id) {
-    const { data: project } = await adminClient
+    const { data: project, error: projectErr } = await adminClient
       .from('projects')
-      .select('id, organization_id')
+      .select('id, organization_id, client_id')
       .eq('id', project_id)
       .maybeSingle();
 
-    if (!project || project.organization_id !== organization_id) {
+    if (projectErr || !project || project.organization_id !== organization_id) {
+      return null;
+    }
+
+    const { data: member, error: memberErr } = await adminClient
+      .from('organization_members')
+      .select('user_id')
+      .eq('organization_id', organization_id)
+      .eq('user_id', recipient_user_id)
+      .maybeSingle();
+
+    if (memberErr) {
+      return null;
+    }
+
+    let authorized = !!member;
+
+    if (!authorized && project.client_id) {
+      const { data: client, error: clientErr } = await adminClient
+        .from('clients')
+        .select('id, user_id')
+        .eq('id', project.client_id)
+        .eq('user_id', recipient_user_id)
+        .maybeSingle();
+
+      if (clientErr) {
+        return null;
+      }
+
+      authorized = !!client;
+    }
+
+    if (!authorized) {
+      return null;
+    }
+  } else {
+    const { data: member, error: memberErr } = await adminClient
+      .from('organization_members')
+      .select('user_id')
+      .eq('organization_id', organization_id)
+      .eq('user_id', recipient_user_id)
+      .maybeSingle();
+
+    if (memberErr || !member) {
       return null;
     }
   }
@@ -158,17 +202,16 @@ export async function createNotification(
       .select()
       .single();
 
-    if (!insertErr && inserted) {
-      const merged: ProjectNotificationRecord = { ...newRecord, ...inserted };
-      inMemoryNotifications.unshift(merged);
-      return merged;
+    if (insertErr || !inserted) {
+      return null;
     }
-  } catch (_e) {
-    // Continue with in-memory fallback
-  }
 
-  inMemoryNotifications.unshift(newRecord);
-  return newRecord;
+    const merged: ProjectNotificationRecord = { ...newRecord, ...inserted };
+    inMemoryNotifications.unshift(merged);
+    return merged;
+  } catch (_e) {
+    return null;
+  }
 }
 
 /**
@@ -190,7 +233,7 @@ export async function handleListUserNotifications(
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  let notifications: ProjectNotificationRecord[] = [];
+  let notifications: ProjectNotificationRecord[];
 
   try {
     const { data, error } = await adminClient
@@ -200,18 +243,13 @@ export async function handleListUserNotifications(
       .order('created_at', { ascending: false })
       .limit(50);
 
-    if (!error && data && data.length > 0) {
-      notifications = data as ProjectNotificationRecord[];
+    if (error) {
+      return { status: 500, body: { error: 'Failed to load notifications.' } };
     }
-  } catch (_e) {
-    // Fallback to in-memory
-  }
 
-  if (notifications.length === 0) {
-    notifications = inMemoryNotifications
-      .filter((n) => n.recipient_user_id === callerUser.id)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 50);
+    notifications = (data || []) as ProjectNotificationRecord[];
+  } catch (_e) {
+    return { status: 500, body: { error: 'Failed to load notifications.' } };
   }
 
   const unreadCount = notifications.filter((n) => !n.read_at).length;
@@ -250,7 +288,6 @@ export async function handleMarkNotificationRead(
 
   const now = new Date().toISOString();
 
-  // Try DB update
   let updatedRecord: ProjectNotificationRecord | null = null;
   try {
     const { data, error } = await adminClient
@@ -259,25 +296,17 @@ export async function handleMarkNotificationRead(
       .eq('id', notificationId)
       .eq('recipient_user_id', callerUser.id)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (!error && data) {
+    if (error) {
+      return { status: 500, body: { error: 'Failed to mark notification as read.' } };
+    }
+
+    if (data) {
       updatedRecord = data as ProjectNotificationRecord;
     }
   } catch (_e) {
-    // Continue to memory
-  }
-
-  // Check in-memory ledger
-  const memIdx = inMemoryNotifications.findIndex(
-    (n) => n.id === notificationId && n.recipient_user_id === callerUser.id
-  );
-
-  if (memIdx !== -1) {
-    inMemoryNotifications[memIdx].read_at = now;
-    if (!updatedRecord) {
-      updatedRecord = inMemoryNotifications[memIdx];
-    }
+    return { status: 500, body: { error: 'Failed to mark notification as read.' } };
   }
 
   if (!updatedRecord) {
@@ -317,25 +346,23 @@ export async function handleMarkAllNotificationsRead(
 
   const now = new Date().toISOString();
 
-  // DB update
+  let markedCount = 0;
   try {
-    await adminClient
+    const { data, error, count } = await adminClient
       .from('project_notifications')
       .update({ read_at: now })
       .eq('recipient_user_id', callerUser.id)
-      .is('read_at', null);
-  } catch (_e) {
-    // Fallback to in-memory
-  }
+      .is('read_at', null)
+      .select('id');
 
-  // Update in-memory
-  let markedCount = 0;
-  inMemoryNotifications.forEach((n) => {
-    if (n.recipient_user_id === callerUser.id && !n.read_at) {
-      n.read_at = now;
-      markedCount++;
+    if (error) {
+      return { status: 500, body: { error: 'Failed to mark notifications as read.' } };
     }
-  });
+
+    markedCount = count ?? data?.length ?? 0;
+  } catch (_e) {
+    return { status: 500, body: { error: 'Failed to mark notifications as read.' } };
+  }
 
   return {
     status: 200,
