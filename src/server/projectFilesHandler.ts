@@ -84,8 +84,12 @@ export async function handleListProjectFiles(
 
   const fileRows = dbFiles || [];
 
-  // Enrich with profile names
+  // Enrich with profile names and identify client-submitted files.
   const uploaderIds = Array.from(new Set(fileRows.map((f: any) => f.uploaded_by).filter(Boolean)));
+  const { data: clientUploaders } = uploaderIds.length > 0
+    ? await adminClient.from('clients').select('user_id').in('user_id', uploaderIds)
+    : { data: [] };
+  const clientUploaderIds = new Set((clientUploaders || []).map((c: any) => c.user_id).filter(Boolean));
   let profileMap: Record<string, { full_name?: string; email?: string }> = {};
   if (uploaderIds.length > 0) {
     const { data: profiles } = await adminClient
@@ -104,6 +108,7 @@ export async function handleListProjectFiles(
     ...f,
     uploader_name: profileMap[f.uploaded_by]?.full_name || null,
     uploader_email: profileMap[f.uploaded_by]?.email || null,
+    uploader_role: clientUploaderIds.has(f.uploaded_by) ? 'client' : 'studio',
   }));
 
   return { status: 200, body: { files } };
