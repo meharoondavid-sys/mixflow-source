@@ -38,16 +38,49 @@ export const CollaboratorPortal: React.FC<Props> = ({ token }) => {
     (async () => {
       try {
         setBusy(true);
-        const accepted = await call('/api/collaborators/invites/accept', { inviteToken: token });
-        setSession(accepted);
-        const pid = accepted.collaborator.project_id;
+        setError('');
+
+        let activeSession: any = null;
+        const storedRaw = sessionStorage.getItem('mixflow_collaborator_session');
+        if (storedRaw) {
+          try {
+            const stored = JSON.parse(storedRaw);
+            if (stored?.session_token && stored?.collaborator?.project_id) {
+              activeSession = stored;
+            }
+          } catch {
+            sessionStorage.removeItem('mixflow_collaborator_session');
+          }
+        }
+
+        // Consume a fresh invite only when there is no existing browser session.
+        // Refreshes reuse the collaborator session instead of consuming the invite again.
+        if (!activeSession) {
+          activeSession = await call('/api/collaborators/invites/accept', { inviteToken: token });
+          sessionStorage.setItem('mixflow_collaborator_session', JSON.stringify(activeSession));
+        }
+
+        setSession(activeSession);
+        const pid = activeSession.collaborator.project_id;
         setProjectId(pid);
-        await load(accepted, pid);
+        await load(activeSession, pid);
       } catch (e: any) {
+        sessionStorage.removeItem('mixflow_collaborator_session');
         setError(e.message || 'This collaborator link is invalid or expired.');
       } finally { setBusy(false); }
     })();
   }, [token]);
+
+  const logout = () => {
+    sessionStorage.removeItem('mixflow_collaborator_session');
+    setSession(null);
+    setProjectId('');
+    setFiles([]);
+    setVersions([]);
+    setFeedback([]);
+    setSelectedVersion(null);
+    setError('Your collaborator session has been cleared. Open the invite link again to start a new session.');
+  };
 
   const play = async (versionId: string) => {
     try {
