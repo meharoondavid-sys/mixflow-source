@@ -14,7 +14,7 @@ export interface ProjectServiceAssignmentRecord {
   created_at: string;
 }
 
-export function useServices(projectId?: string) {
+export function useServices(projectId?: string, loadCatalog: boolean = true) {
   const { organization, role } = useAuth();
   const canManage = role === 'owner' || role === 'admin';
 
@@ -170,8 +170,13 @@ export function useServices(projectId?: string) {
   }, [projectServices]);
 
   useEffect(() => {
-    fetchAvailableServices();
-  }, [fetchAvailableServices]);
+    if (loadCatalog) {
+      fetchAvailableServices();
+    } else {
+      setAvailableServices([]);
+      setLoadingServices(false);
+    }
+  }, [fetchAvailableServices, loadCatalog]);
 
   useEffect(() => {
     if (projectId) {
