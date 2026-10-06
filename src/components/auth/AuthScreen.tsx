@@ -29,7 +29,7 @@ export const AuthScreen: React.FC = () => {
     signInAsDemo
   } = useAuth();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'reset'>(() => typeof window !== 'undefined' && window.location.hash.includes('type=recovery') ? 'reset' : 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -50,6 +50,26 @@ export const AuthScreen: React.FC = () => {
     if (!isConfigured) {
       setFormError('Please configure your Supabase Anon Key to connect to project amgowwvresmsysofwqsp.');
       setShowKeyConfig(true);
+      return;
+    }
+
+    if (mode === 'forgot') {
+      if (!email.trim()) { setFormError('Please enter your email address.'); return; }
+      setIsSubmitting(true);
+      const res = await resetPassword(email.trim());
+      setIsSubmitting(false);
+      if (res.error) setFormError(res.error.message);
+      else setSuccessNotice('If an account exists for this email, a password reset link has been sent. Check your inbox and spam folder.');
+      return;
+    }
+
+    if (mode === 'reset') {
+      if (password.length < 6) { setFormError('Password must be at least 6 characters.'); return; }
+      setIsSubmitting(true);
+      const res = await updatePassword(password);
+      setIsSubmitting(false);
+      if (res.error) setFormError(res.error.message);
+      else { setSuccessNotice('Password updated successfully. Signing you in…'); window.location.hash = ''; setMode('signin'); setPassword(''); }
       return;
     }
 
@@ -379,6 +399,9 @@ export const AuthScreen: React.FC = () => {
               </div>
               {mode === 'signup' && (
                 <p className="text-[11px] text-zinc-500 mt-1">Must be at least 6 characters</p>
+              )}
+              {mode === 'signin' && (
+                <button type="button" onClick={() => { setMode('forgot'); setFormError(null); setSuccessNotice(null); }} className="mt-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-2">Forgot password?</button>
               )}
             </div>
 
