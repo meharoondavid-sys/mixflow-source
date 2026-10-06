@@ -507,7 +507,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleUploadSubmit} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               {/* File Dropzone / Picker */}
               <div>
                 <label className="block text-zinc-300 font-medium mb-1.5">
@@ -583,7 +583,8 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleUploadSubmit}
                   disabled={!selectedUploadFile || isUploading}
                   className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
@@ -597,7 +598,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
                   )}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
