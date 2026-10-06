@@ -285,7 +285,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     async function initializeSession() {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        // Never block the first screen indefinitely if the auth service is slow.
+        const sessionRequest = supabase.auth.getSession();
+        const result = await Promise.race([
+          sessionRequest,
+          new Promise<{ data: { session: Session | null }; error: null }>((resolve) =>
+            setTimeout(() => resolve({ data: { session: null }, error: null }), 4000)
+          ),
+        ]);
+        const { data, error } = result;
         if (error) {
           console.warn('Session retrieval error:', error.message);
         }
