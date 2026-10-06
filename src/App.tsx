@@ -43,6 +43,8 @@ const AppContent: React.FC = () => {
     projects
   } = useApp();
 
+  const isPasswordRecovery = window.location.hash.includes('type=recovery');
+
   const collaboratorMatch = window.location.hash.match(/^#\/collaborator\/invite\/([^/]+)$/);
   const collaboratorToken = collaboratorMatch?.[1] || null;
 
