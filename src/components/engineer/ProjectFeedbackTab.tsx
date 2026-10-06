@@ -52,6 +52,18 @@ export const ProjectFeedbackTab: React.FC<ProjectFeedbackTabProps> = ({ projectI
   const [versionNotes, setVersionNotes] = useState<string>('');
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [projectStatus, setProjectStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadProjectStatus = async () => {
+      const sb = getSupabase();
+      const { data, error } = await sb.from('projects').select('status').eq('id', projectId).single();
+      if (!cancelled && !error) setProjectStatus(data?.status || null);
+    };
+    loadProjectStatus();
+    return () => { cancelled = true; };
+  }, [projectId]);
 
   const getAuthToken = async () => {
     const sb = getSupabase();
@@ -342,6 +354,16 @@ export const ProjectFeedbackTab: React.FC<ProjectFeedbackTabProps> = ({ projectI
       </div>
 
       {/* Revision Context Banner */}
+      {projectStatus === 'needs_revision' && (
+        <div className="bg-orange-500/10 border border-orange-500/25 rounded-2xl p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-orange-300">Revision requested</p>
+            <p className="text-[11px] text-orange-200/70 mt-0.5">Review the client feedback below, make your changes, then upload the next mix version.</p>
+          </div>
+          <span className="shrink-0 text-[10px] uppercase tracking-wider font-bold text-orange-300 border border-orange-500/30 rounded-full px-2.5 py-1">Action required</span>
+        </div>
+      )}
+
       <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-zinc-900 rounded-xl border border-zinc-800 text-emerald-400">
