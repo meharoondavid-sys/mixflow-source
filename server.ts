@@ -47,6 +47,16 @@ import {
   handleRevokeCollaboratorInvite,
   handleAcceptCollaboratorInvite,
 } from './src/server/collaboratorHandler.js';
+import {
+  handleCollaboratorProjectFiles,
+  handleCollaboratorFileDownload,
+  handleCollaboratorVersions,
+  handleCollaboratorPlayback,
+  handleCollaboratorRequestVersionUpload,
+  handleCollaboratorConfirmVersion,
+  handleCollaboratorListFeedback,
+  handleCollaboratorCreateFeedback,
+} from './src/server/collaboratorProjectHandler.js';
 
 dotenv.config({ override: true });
 
@@ -97,6 +107,41 @@ async function startServer() {
       console.error('[MixFlow Server] Collaborator invite revoke error:', err);
       return res.status(500).json({ error: 'Failed to revoke collaborator invite.' });
     }
+  });
+
+  app.post('/api/collaborators/project/files', async (req, res) => {
+    try { const result = await handleCollaboratorProjectFiles({ body: req.body, projectId: req.body?.projectId, supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '', supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '' }); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Collaborator files error:', err); return res.status(500).json({ error: 'Failed to retrieve collaborator files.' }); }
+  });
+
+  app.post('/api/collaborators/project/file-download', async (req, res) => {
+    try { const result = await handleCollaboratorFileDownload({ body: req.body, projectId: req.body?.projectId, supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '', supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '' }); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Collaborator file download error:', err); return res.status(500).json({ error: 'Failed to generate collaborator download URL.' }); }
+  });
+
+  app.post('/api/collaborators/project/versions', async (req, res) => {
+    try { const result = await handleCollaboratorVersions({ body: req.body, projectId: req.body?.projectId, supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '', supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '' }); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Collaborator versions error:', err); return res.status(500).json({ error: 'Failed to retrieve collaborator versions.' }); }
+  });
+
+  app.post('/api/collaborators/project/playback', async (req, res) => {
+    try { const result = await handleCollaboratorPlayback({ body: req.body, projectId: req.body?.projectId, supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '', supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '' }); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Collaborator playback error:', err); return res.status(500).json({ error: 'Failed to generate collaborator playback URL.' }); }
+  });
+
+  app.post('/api/collaborators/project/version-upload-url', async (req, res) => {
+    try { const result = await handleCollaboratorRequestVersionUpload({ body: req.body, projectId: req.body?.projectId, supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '', supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '' }); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Collaborator version upload URL error:', err); return res.status(500).json({ error: 'Failed to generate collaborator upload URL.' }); }
+  });
+
+  app.post('/api/collaborators/project/version-confirm', async (req, res) => {
+    try { const result = await handleCollaboratorConfirmVersion({ body: req.body, projectId: req.body?.projectId, supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '', supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '' }); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Collaborator version confirm error:', err); return res.status(500).json({ error: 'Failed to confirm collaborator version.' }); }
+  });
+
+  app.post('/api/collaborators/project/feedback', async (req, res) => {
+    try { const result = req.body?.action === 'create' ? await handleCollaboratorCreateFeedback({ body: req.body, projectId: req.body?.projectId, supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '', supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '' }) : await handleCollaboratorListFeedback({ body: req.body, projectId: req.body?.projectId, supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '', supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '', supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '' }); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Collaborator feedback error:', err); return res.status(500).json({ error: 'Failed to process collaborator feedback.' }); }
   });
 
   app.post('/api/collaborators/invites/accept', async (req, res) => {
