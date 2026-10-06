@@ -368,6 +368,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resetPassword = async (email: string): Promise<{ error: Error | null }> => {
+    const supabase = getSupabase();
+    try {
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://mixflow-ngsw.onrender.com/';
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      return { error: error ? new Error(formatAuthError(error)) : null };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error('Unable to send password reset email. Please try again.') };
+    }
+  };
+
+  const updatePassword = async (password: string): Promise<{ error: Error | null }> => {
+    const supabase = getSupabase();
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      return { error: error ? new Error(formatAuthError(error)) : null };
+    } catch (err: unknown) {
+      return { error: err instanceof Error ? err : new Error('Unable to update your password. Please try again.') };
+    }
+  };
+
   // Sign Up with full name, email, password, and studio/company name
   const signUp = async (params: {
     fullName: string;
@@ -534,6 +555,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isConfigured,
         pendingConfirmationEmail,
         setPendingConfirmationEmail,
+        resetPassword,
+        updatePassword,
         setAnonKeyManually,
         signIn,
         signUp,
