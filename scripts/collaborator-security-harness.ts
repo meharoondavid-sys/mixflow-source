@@ -7,7 +7,7 @@ import {
   handleCollaboratorConfirmVersion,
   handleCollaboratorCreateFeedback,
 } from '../src/server/collaboratorProjectHandler.js';
-import { resolveCollaboratorSession } from '../src/server/collaboratorHandler.js';
+import { handleAcceptCollaboratorInvite, resolveCollaboratorSession } from '../src/server/collaboratorHandler.js';
 
 const PROJECT_A = '11111111-1111-4111-8111-111111111111';
 const PROJECT_B = '22222222-2222-4222-8222-222222222222';
@@ -62,8 +62,14 @@ function createState(overrides: Partial<State> = {}): State {
     invites: [{
       id: 'invite-a',
       project_id: PROJECT_A,
+      organization_id: ORG_A,
       name: 'Raphael',
       email: 'raphael@example.com',
+      role: 'contributor',
+      token_hash: sha('invite-token'),
+      expires_at: new Date(Date.now() + 86400000).toISOString(),
+      accepted_at: null,
+      revoked_at: null,
     }],
     projects: [
       { id: PROJECT_A, organization_id: ORG_A },
@@ -174,6 +180,16 @@ const ctx = (state: State, body: any, projectId = PROJECT_A) => ({
 
 async function run() {
   const checks: [string, () => Promise<void>][] = [
+    ['fresh invite can be accepted once', async () => {
+      const state = createState();
+      const first = await handleAcceptCollaboratorInvite(ctx(state, { inviteToken: 'invite-token' }));
+      assert.equal(first.status, 200);
+      assert.ok(first.body.session_token);
+      assert.equal(state.invites[0].accepted_at !== null, true);
+
+      const second = await handleAcceptCollaboratorInvite(ctx(state, { inviteToken: 'invite-token' }));
+      assert.equal(second.status, 410);
+    }],
     ['missing session is rejected', async () => {
       const r = await handleCollaboratorPlayback(ctx(createState(), { versionId: VERSION_A }, PROJECT_A));
       assert.equal(r.status, 401);
