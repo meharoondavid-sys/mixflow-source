@@ -55,6 +55,10 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const [feedbackTimestamp, setFeedbackTimestamp] = useState<number>(0);
   const [submittingFeedback, setSubmittingFeedback] = useState<boolean>(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [projectStatus, setProjectStatus] = useState<string | null>(null);
+  const [reviewAction, setReviewAction] = useState<'revision_requested' | 'mix_approved' | null>(null);
+  const [reviewActionLoading, setReviewActionLoading] = useState(false);
+  const [reviewActionError, setReviewActionError] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
