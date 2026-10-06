@@ -294,15 +294,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data.session?.user) {
             setSession(data.session);
             setUser(data.session.user);
-            await loadUserEntities(data.session.user.id);
+            // Authentication is ready now. Do not block the entire app while the
+            // profile/workspace is hydrated; that work continues in the background.
+            setLoading(false);
+            void loadUserEntities(data.session.user.id);
           } else {
             setSession(null);
             setUser(null);
             setProfile(null);
             setOrganization(null);
             setRole(null);
+            setLoading(false);
           }
-          setLoading(false);
         }
       } catch (err) {
         console.error('Session init error:', err);
@@ -321,13 +324,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(newSession?.user || null);
 
         if (newSession?.user) {
-          await loadUserEntities(newSession.user.id);
+          // Never hold the auth UI hostage to secondary workspace queries.
+          setLoading(false);
+          void loadUserEntities(newSession.user.id);
         } else {
           setProfile(null);
           setOrganization(null);
           setRole(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
