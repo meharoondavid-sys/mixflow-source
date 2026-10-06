@@ -17,6 +17,9 @@ export const ClientPortal: React.FC = () => {
     projectLoading,
     error,
     downloadingFileId,
+    uploadProgress,
+    isUploading,
+    uploadFileToStudio,
     refreshPortal,
     fetchProjectDetail,
     setActiveProject,
@@ -97,6 +100,14 @@ export const ClientPortal: React.FC = () => {
             loading={projectLoading}
             error={error}
             downloadingFileId={downloadingFileId}
+            uploadProgress={uploadProgress}
+            isUploading={isUploading}
+            onUploadFile={(file, songId) => {
+              if (activeProjectIdFromHash) {
+                return uploadFileToStudio(activeProjectIdFromHash, file, songId);
+              }
+              return Promise.resolve({ error: new Error('No active project selected.') });
+            }}
             onBack={handleBackToProjects}
             onDownloadFile={(fileId, fileName) => {
               if (activeProjectIdFromHash) {
