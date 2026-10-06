@@ -346,11 +346,6 @@ export async function handleConfirmVersionUpload(
 
   const expectedVersionPrefix = expectedPrefix + body.versionId + '_';
   if (!body.storagePath.startsWith(expectedVersionPrefix)) {
-    return { status: 400, body: { error: 'Security violation: Storage path does not match version ID.' } };
-  }
-
-  const expectedVersionPrefix = expectedPrefix + body.versionId + '_';
-  if (!body.storagePath.startsWith(expectedVersionPrefix)) {
     return { status: 400, body: { error: 'Security violation: Storage path does not match the version ID.' } };
   }
 
