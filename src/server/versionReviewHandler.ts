@@ -442,6 +442,29 @@ export async function handleConfirmVersionUpload(
     return { status: 500, body: { error: 'Failed to record version in database.' } };
   }
 
+  // Revision loop: when a project is awaiting revision, the newly uploaded version becomes the active review version and the project returns to client review.
+  const { data: currentProject } = await adminClient
+    .from('projects')
+    .select('status')
+    .eq('id', projectId)
+    .maybeSingle();
+
+  if (currentProject?.status === 'needs_revision') {
+    await adminClient.from('project_file_versions').update({ status: 'in_review' }).eq('id', versionRecord.id);
+    await adminClient.from('projects').update({ status: 'in_review', updated_at: new Date().toISOString() }).eq('id', projectId);
+    await adminClient.from('project_status_history').insert({
+      organization_id: project.organization_id,
+      project_id: projectId,
+      version_id: versionRecord.id,
+      from_status: 'needs_revision',
+      to_status: 'in_review',
+      action: 'status_changed',
+      actor_user_id: callerUser.id,
+      actor_role: membership.role,
+      note: 'New version uploaded for client review.',
+    });
+  }
+
   // Step 15 Notification: Notify client of new mix version
   if (project.client_id) {
     try {
