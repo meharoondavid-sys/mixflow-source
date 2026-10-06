@@ -17,6 +17,8 @@ import {
   handleGetClientPortalProjects,
   handleGetClientPortalProjectDetail,
   handleGetClientPortalFileDownloadUrl,
+  handleCreateClientFileUploadUrl,
+  handleConfirmClientFileUpload,
 } from './src/server/clientPortalHandler.js';
 import {
   handleListProjectVersions,
@@ -441,6 +443,42 @@ async function startServer() {
     } catch (err: any) {
       console.error('[MixFlow Server] Client portal project detail error:', err);
       return res.status(500).json({ error: 'Failed to fetch project details.' });
+    }
+  });
+
+  // 4A. POST /api/client-portal/projects/:projectId/files/upload-url - Client uploads project file
+  app.post('/api/client-portal/projects/:projectId/files/upload-url', async (req, res) => {
+    try {
+      const result = await handleCreateClientFileUploadUrl({
+        authHeader: req.headers.authorization,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Client file upload URL error:', err);
+      return res.status(500).json({ error: 'Failed to prepare client file upload.' });
+    }
+  });
+
+  // 4B. POST /api/client-portal/projects/:projectId/files/confirm - Confirm client upload
+  app.post('/api/client-portal/projects/:projectId/files/confirm', async (req, res) => {
+    try {
+      const result = await handleConfirmClientFileUpload({
+        authHeader: req.headers.authorization,
+        projectId: req.params.projectId,
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Client file confirm error:', err);
+      return res.status(500).json({ error: 'Failed to confirm client file upload.' });
     }
   });
 
