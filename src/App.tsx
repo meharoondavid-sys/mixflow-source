@@ -42,7 +42,7 @@ const AppContent: React.FC = () => {
     projects
   } = useApp();
 
-  const isPasswordRecovery = window.location.hash.includes('type=recovery');
+  const isPasswordRecovery = window.location.hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('reset') === '1';
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
   const collaboratorMatch = window.location.hash.match(/^#\/collaborator\/invite\/([^/]+)$/);
