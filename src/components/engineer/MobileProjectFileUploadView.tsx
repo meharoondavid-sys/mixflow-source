@@ -82,7 +82,7 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
 
       if (!prepareRes.ok) {
         const body = await prepareRes.json().catch(() => ({}));
-        throw new Error(body.error || `Could not prepare upload (HTTP ${prepareRes.status}).`);
+        throw new Error(`Upload setup rejected (HTTP ${prepareRes.status}): ${body.error || 'Could not prepare upload.'}`);
       }
 
       const { fileId, storagePath, token } = await prepareRes.json();
@@ -113,7 +113,19 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
           onProgress: (uploaded, total) => {
             setProgress(Math.max(2, Math.min(94, Math.round((uploaded / total) * 94))));
           },
-          onError: (uploadError) => reject(uploadError),
+          onError: (uploadError: any) => {
+            const response = uploadError?.originalResponse;
+            if (response) {
+              const statusCode = response.getStatus?.();
+              const responseBody = response.getBody?.();
+              const detail = typeof responseBody === 'string' ? responseBody.slice(0, 240) : '';
+              reject(new Error(
+                `Storage upload rejected (HTTP ${statusCode || 'unknown'}).${detail ? ` ${detail}` : ''}`
+              ));
+              return;
+            }
+            reject(uploadError);
+          },
           onSuccess: () => resolve(),
         });
         upload.start();
@@ -140,7 +152,7 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
 
       if (!confirmRes.ok) {
         const body = await confirmRes.json().catch(() => ({}));
-        throw new Error(body.error || `Could not finalize upload (HTTP ${confirmRes.status}).`);
+        throw new Error(`File record finalization rejected (HTTP ${confirmRes.status}): ${body.error || 'Could not finalize upload.'}`);
       }
 
       setProgress(100);
