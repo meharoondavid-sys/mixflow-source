@@ -47,7 +47,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
   const { clients, loading: clientsLoading } = useClients();
   const { createProject, canManageProjects } = useProjects();
-  const { availableServices, addServiceToProject } = useServices();
+  const { availableServices, addServiceToProject } = useServices(undefined, isOpen);
 
   const [projectType, setProjectType] = useState<ProjectType>('single');
   const [name, setName] = useState('');
@@ -407,13 +407,13 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
             <label className="block text-zinc-300 font-medium mb-1.5 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Sliders size={13} className="text-emerald-400" />
-                <span>Production Services Scope (Optional)</span>
+                <span>Services Required</span>
               </span>
-              <span className="text-[10px] text-zinc-500 font-normal">Select all that apply</span>
+              <span className="text-[10px] text-zinc-500 font-normal">Select the services needed for this project</span>
             </label>
             <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 bg-zinc-950/70 border border-zinc-800 rounded-xl">
               {availableServices.length === 0 ? (
-                <span className="text-[11px] text-zinc-500">Loading services catalog...</span>
+                <span className="text-[11px] text-zinc-500">Loading services...</span>
               ) : (
                 availableServices.map((svc) => {
                   const isSelected = selectedServiceIds.includes(svc.id);
