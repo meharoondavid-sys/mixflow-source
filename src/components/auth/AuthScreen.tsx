@@ -11,7 +11,6 @@ import {
   KeyRound,
   Loader2,
   ShieldCheck,
-  Headphones,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -22,8 +21,7 @@ export const AuthScreen: React.FC = () => {
     resetPassword,
     updatePassword, 
     pendingConfirmationEmail, 
-    setPendingConfirmationEmail,
-    signInAsDemo
+    setPendingConfirmationEmail
   } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'reset'>(() => {
@@ -277,14 +275,6 @@ export const AuthScreen: React.FC = () => {
                           Sign up as new studio →
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => signInAsDemo(email, fullName, 'owner')}
-                        className="w-full py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Headphones size={13} />
-                        <span>⚡ Launch Studio Console Immediately (Demo Engineer)</span>
-                      </button>
                     </div>
                   )}
                 </div>
