@@ -1,32 +1,22 @@
 import React, { useState } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Users, 
-  Disc3, 
-  Music, 
-  Layers, 
-  Calendar, 
-  DollarSign, 
-  Clock, 
-  Filter, 
-  ChevronRight, 
-  RefreshCw, 
-  AlertCircle, 
-  Eye, 
-  Bug,
-  FileText,
-  Copy,
-  Check,
-  Database,
+import {
+  Plus,
+  Search,
+  Disc3,
+  Music,
+  Layers,
+  ChevronRight,
+  RefreshCw,
+  AlertCircle,
+  Clock3,
+  MessageSquare,
   X,
   Sliders
 } from 'lucide-react';
 import { useProjects } from '../../hooks/useProjects';
 import { useApp } from '../../context/AppContext';
 import { NewProjectModal } from '../modals/NewProjectModal';
-import { ProjectRecord, ProjectType, ProjectStatus, PROJECT_STATUS_CONFIG } from '../../types/project';
-import { PROJECTS_MIGRATION_SQL } from '../../data/projectsMigrationSql';
+import { ProjectType, ProjectStatus, PROJECT_STATUS_CONFIG } from '../../types/project';
 
 interface DashboardViewProps {
   onSelectProject?: (projectId: string) => void;
@@ -49,7 +39,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
     projects, 
     loading, 
     error, 
-    diagnosticError, 
     isTableMissing,
     fetchProjects, 
     canManageProjects, 
@@ -62,13 +51,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
   const [typeFilter, setTypeFilter] = useState<'all' | ProjectType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(PROJECTS_MIGRATION_SQL);
-    setCopiedSql(true);
-    setTimeout(() => setCopiedSql(false), 2500);
-  };
 
   const filteredProjects = projects.filter((p) => {
     const q = search.toLowerCase().trim();
@@ -114,7 +96,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
     }).format(val);
   };
 
-  // Compute metrics from real Supabase projects
+  const needsAttention = projects.filter((p) =>
+    p.status === 'needs_revision' ||
+    p.status === 'in_review' ||
+    p.status === 'awaiting_files'
+  );
+
+  const attentionLabel = (status: ProjectStatus) => {
+    if (status === 'needs_revision') return 'Revision requested';
+    if (status === 'in_review') return 'Client review';
+    if (status === 'awaiting_files') return 'Waiting for files';
+    return PROJECT_STATUS_CONFIG[status]?.label || status;
+  };
+
+  // Compute studio metrics from the current project list
   const totalValue = projects.reduce((acc, p) => acc + (p.project_price || 0), 0);
   const activeCount = projects.filter((p) => p.status === 'in_production' || p.status === 'in_review').length;
   const completedCount = projects.filter((p) => p.status === 'completed' || p.status === 'approved').length;
@@ -164,41 +159,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
         </div>
       </div>
 
-      {/* Global Error Banner */}
+      {/* Friendly error banner */}
       {error && !isTableMissing && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-xs text-red-400 space-y-2">
-          <div className="flex items-start gap-2.5">
-            <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-400" />
-            <div className="flex-1">
-              <span className="font-semibold text-red-300">Database Notice: </span>
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => fetchProjects()}
-              className="px-2.5 py-1 bg-red-950/60 hover:bg-red-900/60 border border-red-800 text-red-200 rounded-lg text-[11px] transition-colors"
-            >
-              Retry
-            </button>
+        <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/25 rounded-2xl p-4 text-xs">
+          <AlertCircle size={17} className="shrink-0 mt-0.5 text-red-400" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-red-300">We couldn't load your projects</p>
+            <p className="text-red-200/70 mt-0.5">Please try again. Your project data has not been changed.</p>
           </div>
-
-          {diagnosticError && (
-            <div className="mt-2 pt-2 border-t border-red-500/20 text-[11px] font-mono text-zinc-300 space-y-1 bg-black/40 rounded-lg p-2.5">
-              <div className="flex items-center justify-between text-red-300">
-                <span className="flex items-center gap-1">
-                  <Bug size={12} className="text-red-400" />
-                  <span>Operation: {diagnosticError.operation}</span>
-                </span>
-                <span className="px-1.5 py-0.5 rounded bg-red-950 text-red-200 border border-red-800 text-[10px]">
-                  Code: {diagnosticError.code}
-                </span>
-              </div>
-              <div className="text-zinc-400 break-all">{diagnosticError.message}</div>
-              {diagnosticError.hint && (
-                <div className="text-amber-300 text-[10px]">Hint: {diagnosticError.hint}</div>
-              )}
-            </div>
-          )}
+          <button onClick={() => fetchProjects()} className="shrink-0 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-200 rounded-lg text-[11px] font-semibold">
+            Retry
+          </button>
         </div>
+      )}
+
+      {/* Needs attention */}
+      {needsAttention.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-white">Needs your attention</h2>
+              <p className="text-[11px] text-zinc-500 mt-0.5">The projects that need your next action.</p>
+            </div>
+            <span className="text-[10px] font-mono text-zinc-500">{needsAttention.length} active</span>
+          </div>
+          <div className="grid gap-2">
+            {needsAttention.slice(0, 4).map((project) => {
+              const isRevision = project.status === 'needs_revision';
+              const isReview = project.status === 'in_review';
+              return (
+                <button
+                  key={project.id}
+                  onClick={() => handleOpenProject(project.id)}
+                  className="w-full text-left flex items-center gap-3 p-3.5 bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 rounded-2xl transition-all group"
+                >
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                    isRevision ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                    isReview ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
+                    'bg-zinc-800 text-zinc-400 border-zinc-700'
+                  }`}>
+                    {isRevision ? <MessageSquare size={16} /> : isReview ? <Clock3 size={16} /> : <Music size={16} />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-zinc-100 truncate">{project.name}</span>
+                      <span className="text-[10px] text-zinc-500">· {project.client?.full_name || 'Client'}</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">{attentionLabel(project.status)}</p>
+                  </div>
+                  <ChevronRight size={15} className="shrink-0 text-zinc-600 group-hover:text-emerald-400 transition-colors" />
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* Metric Cards (only shown when projects exist) */}
