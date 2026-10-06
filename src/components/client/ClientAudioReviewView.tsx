@@ -193,6 +193,27 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     return `${kb.toFixed(1)} KB`;
   };
 
+  const playVersionDirect = async (versionId: string) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required.');
+      const res = await fetch(`/api/projects/${projectId}/versions/${versionId}/playback-url`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to load comparison audio.');
+      const data = await res.json();
+      if (audioRef.current) {
+        audioRef.current.src = data.signedUrl;
+        await audioRef.current.play();
+        setIsPlaying(true);
+        setPlaybackUrl(data.signedUrl);
+        setCurrentTime(0);
+      }
+    } catch (err: any) {
+      setAudioError(err.message || 'Comparison playback error.');
+    }
+  };
+
   const handlePlayPause = () => {
     if (!audioRef.current || !playbackUrl) return;
     if (isPlaying) {
@@ -482,8 +503,8 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 <div className="text-xs text-zinc-500 mt-1">A = V{selectedVersion.version_number} · B = V{compareVersion.version_number}</div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setComparePlaying('a')} className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white">Play A</button>
-                <button onClick={() => setComparePlaying('b')} className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold">Play B</button>
+                <button onClick={() => { setComparePlaying('a'); playVersionDirect(selectedVersion.id); }} className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white">Play A</button>
+                <button onClick={() => { setComparePlaying('b'); playVersionDirect(compareVersion.id); }} className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold">Play B</button>
               </div>
             </div>
           )}
