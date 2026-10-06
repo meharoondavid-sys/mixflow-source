@@ -171,12 +171,17 @@ export async function handleCreateProjectDelivery(
   // Verify project exists
   const { data: project, error: projErr } = await adminClient
     .from('projects')
-    .select('id, organization_id, client_id, name')
+    .select('id, organization_id, client_id, name, status')
     .eq('id', projectId)
     .maybeSingle();
 
   if (projErr || !project) {
     return { status: 404, body: { error: 'Project not found.' } };
+  }
+
+  // Final delivery is only allowed after the client has approved the mix.
+  if (project.status !== 'approved') {
+    return { status: 400, body: { error: 'Final deliverables can only be released after the project is approved by the client.' } };
   }
 
   // Verify caller role: MUST be owner, admin, or engineer
