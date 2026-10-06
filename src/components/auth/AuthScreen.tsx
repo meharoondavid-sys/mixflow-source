@@ -12,7 +12,6 @@ import {
   Loader2,
   ShieldCheck,
   Headphones,
-  Bug
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -411,13 +410,6 @@ export const AuthScreen: React.FC = () => {
             </div>
           </form>
 
-          {/* Quick Demo Credentials Assistant */}
-          <div className="pt-2 border-t border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400">
-            <span>Secure account session</span>
-            <button
-              type="button"
-              
-          </div>
           </>
           )}
         </div>
