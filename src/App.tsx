@@ -7,6 +7,7 @@ import { Navbar } from './components/Navbar';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal';
 import { downloadProjectSourceZip } from './utils/exportSourceZip';
+import { MobileProjectFileUploadView } from './components/engineer/MobileProjectFileUploadView';
 
 // Modals
 const DashboardView = lazy(() => import('./components/engineer/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -313,6 +314,13 @@ const AppContent: React.FC = () => {
 };
 
 export default function App() {
+  // Keep the mobile upload route outside the main studio providers.
+  // This minimizes memory while Android's native file picker is open.
+  const mobileUploadMatch = window.location.hash.match(/^#\/mobile-upload\/([^?]+)/);
+  if (mobileUploadMatch?.[1]) {
+    return <MobileProjectFileUploadView projectId={decodeURIComponent(mobileUploadMatch[1])} />;
+  }
+
   return (
     <AuthProvider>
       <ProjectsProvider>
