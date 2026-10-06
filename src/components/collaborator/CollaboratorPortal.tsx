@@ -45,7 +45,11 @@ export const CollaboratorPortal: React.FC<Props> = ({ token }) => {
         if (storedRaw) {
           try {
             const stored = JSON.parse(storedRaw);
-            if (stored?.session_token && stored?.collaborator?.project_id) {
+            if (
+              stored?.session_token &&
+              stored?.collaborator?.project_id &&
+              stored?.invite_token === token
+            ) {
               activeSession = stored;
             }
           } catch {
@@ -57,7 +61,10 @@ export const CollaboratorPortal: React.FC<Props> = ({ token }) => {
         // Refreshes reuse the collaborator session instead of consuming the invite again.
         if (!activeSession) {
           activeSession = await call('/api/collaborators/invites/accept', { inviteToken: token });
-          sessionStorage.setItem('mixflow_collaborator_session', JSON.stringify(activeSession));
+          sessionStorage.setItem(
+            'mixflow_collaborator_session',
+            JSON.stringify({ ...activeSession, invite_token: token }),
+          );
         }
 
         setSession(activeSession);
