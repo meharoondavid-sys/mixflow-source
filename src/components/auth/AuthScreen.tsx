@@ -267,8 +267,11 @@ export const AuthScreen: React.FC = () => {
                       finally { setIsSubmitting(false); }
                     } else {
                       if (password.length < 6) { setFormError('Password must be at least 6 characters.'); return; }
-                      setIsSubmitting(true); const res = await updatePassword(password); setIsSubmitting(false);
-                      if (res.error) setFormError(res.error.message); else { setSuccessNotice('Password updated successfully.'); window.location.hash = ''; setMode('signin'); setPassword(''); }
+                      setIsSubmitting(true);
+                      try {
+                        const res = await updatePassword(password);
+                        if (res.error) setFormError(res.error.message);
+                        else { setSuccessNotice('Password updated successfully.'); window.location.hash = ''; setMode('signin'); setPassword(''); }
                       } catch { setFormError('We could not update your password. Please try again.'); }
                       finally { setIsSubmitting(false); }
                     }
