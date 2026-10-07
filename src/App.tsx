@@ -9,6 +9,7 @@ import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal
 import { MobileProjectFileUploadView } from './components/engineer/MobileProjectFileUploadView';
 import { ClientAudioReviewView } from './components/client/ClientAudioReviewView';
 import { PublicReviewView } from './components/client/PublicReviewView';
+import { getSupabase } from './lib/supabase';
 
 // Modals
 const DashboardView = lazy(() => import('./components/engineer/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -68,7 +69,7 @@ const AppContent: React.FC = () => {
         const accessToken = sessionData.session?.access_token;
         if (!accessToken) return;
 
-        const response = await fetch(`/api/public-review/${claim!.projectId}/${claim!.songId}/claim-account`, {
+        const response = await fetch(`/api/public-review/${claim!.projectId}/${claim!.songId}/claim-account?token=${encodeURIComponent(claim!.token)}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: claim!.token }),
