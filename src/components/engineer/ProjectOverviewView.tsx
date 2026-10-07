@@ -591,7 +591,8 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                           </button>
                         )}
                       </div>
-                    ) && (
+
+                    {canManageProjects && (
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
