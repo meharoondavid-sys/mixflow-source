@@ -8,6 +8,7 @@ export const PublicReviewView: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAccountOffer, setShowAccountOffer] = useState(false);
+  const [showAccountSignup, setShowAccountSignup] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountSent, setAccountSent] = useState(false);
@@ -122,13 +123,60 @@ export const PublicReviewView: React.FC = () => {
           </div>
         ) : (
           <>
+            {!showAccountOffer && (
+              <section className="max-w-2xl mx-auto mb-6 bg-zinc-900/90 border border-zinc-800 rounded-2xl px-5 py-4 shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Want to keep all your projects in one place?</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">Create a free MixFlow account to save this project and find future projects here too.</p>
+                  </div>
+                  {!showAccountSignup && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAccountSignup(true)}
+                      className="shrink-0 px-4 py-2.5 bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs rounded-xl transition"
+                    >
+                      Create account
+                    </button>
+                  )}
+                </div>
+                {showAccountSignup && (
+                  accountSent ? (
+                    <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                      <p className="text-sm font-semibold text-emerald-300">Check your email.</p>
+                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed">We sent you a secure MixFlow sign-in link. Open it and we'll save this project to your library automatically.</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSaveProject} className="mt-4 space-y-3">
+                      <label className="block text-xs font-semibold text-zinc-300">Email address</label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="relative flex-1">
+                          <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                          <input type="email" required value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="you@example.com" className="w-full pl-9 pr-3 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500" />
+                        </div>
+                        <button type="submit" disabled={accountLoading} className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition">
+                          <span>{accountLoading ? 'Sending…' : 'Create account'}</span>
+                          {!accountLoading && <ArrowRight size={15} />}
+                        </button>
+                      </div>
+                      {accountError && <p className="text-xs text-red-400">{accountError}</p>}
+                      <p className="text-[11px] text-zinc-500">No password to remember. We'll send a secure sign-in link to your email.</p>
+                    </form>
+                  )
+                )}
+              </section>
+            )}
+
             <ClientAudioReviewView
-            projectId={data.project.id}
-            songs={[data.song]}
-            initialSongId={data.song.id}
-            publicReviewToken={token}
-            onProjectApproved={() => setShowAccountOffer(true)}
-          />
+              projectId={data.project.id}
+              songs={[data.song]}
+              initialSongId={data.song.id}
+              publicReviewToken={token}
+              onProjectApproved={() => {
+                setShowAccountSignup(false);
+                setShowAccountOffer(true);
+              }}
+            />
           {showAccountOffer && (
             <section className="max-w-2xl mx-auto mt-6 bg-zinc-900 border border-emerald-500/25 rounded-3xl p-6 sm:p-8 shadow-2xl">
               <div className="flex items-start gap-4">
@@ -182,6 +230,7 @@ export const PublicReviewView: React.FC = () => {
               )}
             </section>
           )}
+
           </>
         )}
       </main>
