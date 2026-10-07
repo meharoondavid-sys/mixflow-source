@@ -131,7 +131,7 @@ export const PublicReviewView: React.FC = () => {
                     onClick={() => setShowAccountSignup(true)}
                     className="text-xs text-zinc-400 hover:text-white transition inline-flex items-center gap-1.5"
                   >
-                    Want to keep your projects in one place? <span className="text-emerald-400 font-semibold">Create account</span>
+                    Want to keep your projects in one place? <span className="text-blue-400 font-semibold">Create account</span>
                     <ArrowRight size={13} />
                   </button>
                 ) : (
@@ -143,7 +143,7 @@ export const PublicReviewView: React.FC = () => {
                         <div className="flex gap-2">
                           <div className="relative flex-1">
                             <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                            <input type="email" required value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="Your email" className="w-full pl-8 pr-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500" />
+                            <input type="email" required value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="Your email" className="w-full pl-8 pr-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500" />
                           </div>
                           <button type="submit" disabled={accountLoading} className="px-3.5 py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-bold text-xs rounded-lg transition">
                             {accountLoading ? 'Sending…' : 'Create account'}
