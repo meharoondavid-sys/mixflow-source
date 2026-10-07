@@ -18,6 +18,28 @@ interface VersionReviewHandlerContext {
   createClientFn?: typeof createClient;
 }
 
+function createDataClient(
+  ctx: Pick<VersionReviewHandlerContext, 'supabaseUrl' | 'supabaseAnonKey' | 'supabaseServiceRoleKey' | 'authHeader'>,
+  createClientFn: typeof createClient
+) {
+  // Production keeps using the service-role client. Preview can operate with the
+  // authenticated user's Supabase client when the server-only key is not configured.
+  if (ctx.supabaseServiceRoleKey) {
+    return createClientFn(ctx.supabaseUrl, ctx.supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+
+  const token = ctx.authHeader?.startsWith('Bearer ')
+    ? ctx.authHeader.replace(/^Bearer\s+/, '').trim()
+    : '';
+
+  return createClientFn(ctx.supabaseUrl, ctx.supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    ...(token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : {}),
+  });
+}
+
 // Helper to authenticate caller
 async function authenticateUser(ctx: {
   authHeader?: string;
@@ -63,9 +85,7 @@ export async function handleListProjectVersions(
   }
   const callerUser = authRes.user;
 
-  const adminClient = createClientFn(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const adminClient = createDataClient(ctx, createClientFn);
 
   // Verify project exists
   const { data: project, error: projErr } = await adminClient
@@ -216,9 +236,7 @@ export async function handleRequestVersionUploadUrl(
     return { status: 400, body: { error: 'File name is required.' } };
   }
 
-  const adminClient = createClientFn(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const adminClient = createDataClient(ctx, createClientFn);
 
   const { data: project, error: projErr } = await adminClient
     .from('projects')
@@ -313,9 +331,7 @@ export async function handleConfirmVersionUpload(
   }
   const callerUser = authRes.user;
 
-  const adminClient = createClientFn(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const adminClient = createDataClient(ctx, createClientFn);
 
   const { data: project, error: projErr } = await adminClient
     .from('projects')
@@ -514,9 +530,7 @@ export async function handleGetVersionPlaybackUrl(
   }
   const callerUser = authRes.user;
 
-  const adminClient = createClientFn(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const adminClient = createDataClient(ctx, createClientFn);
 
   const { data: project } = await adminClient
     .from('projects')
@@ -605,9 +619,7 @@ export async function handleListProjectFeedback(
   }
   const callerUser = authRes.user;
 
-  const adminClient = createClientFn(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const adminClient = createDataClient(ctx, createClientFn);
 
   const { data: project } = await adminClient
     .from('projects')
@@ -698,9 +710,7 @@ export async function handleCreateProjectFeedback(
     return { status: 400, body: { error: 'Version ID is required to anchor feedback.' } };
   }
 
-  const adminClient = createClientFn(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const adminClient = createDataClient(ctx, createClientFn);
 
   const { data: project } = await adminClient
     .from('projects')
@@ -857,9 +867,7 @@ export async function handleUpdateFeedbackStatus(
     return { status: 400, body: { error: "Status must be either 'open' or 'resolved'." } };
   }
 
-  const adminClient = createClientFn(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const adminClient = createDataClient(ctx, createClientFn);
 
   const { data: project } = await adminClient
     .from('projects')
