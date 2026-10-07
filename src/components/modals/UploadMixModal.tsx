@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Upload, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { getSupabase, getSupabaseAnonKey } from '../../lib/supabase';
 
 export const UploadMixModal: React.FC = () => {
-  const { isUploadMixOpen, setIsUploadMixOpen, activeProject, uploadMixVersion } = useApp();
-  const nextVer = (activeProject?.versions.length || 0) + 1;
-  const [versionName, setVersionName] = useState(`Mix V${nextVer} - Revised Balance`);
+  const { isUploadMixOpen, setIsUploadMixOpen, activeProject, activeUploadSongId, setActiveUploadSongId, uploadMixVersion } = useApp();
+  const [nextVer, setNextVer] = useState((activeProject?.versions.length || 0) + 1);
+  const [versionName, setVersionName] = useState('Mix V1 - Revised Balance');
   const [notes, setNotes] = useState('');
   const [lufs, setLufs] = useState(-10.2);
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -15,6 +15,41 @@ export const UploadMixModal: React.FC = () => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!isUploadMixOpen || !activeProject) return;
+    let cancelled = false;
+
+    const loadNextVersion = async () => {
+      try {
+        const supabase = getSupabase();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) return;
+
+        const query = activeUploadSongId ? `?songId=${encodeURIComponent(activeUploadSongId)}` : '';
+        const res = await fetch(`/api/projects/${activeProject.id}/versions${query}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) return;
+
+        const body = await res.json();
+        const latest = (body.versions || []).reduce(
+          (max: number, version: any) => Math.max(max, Number(version.version_number) || 0),
+          0
+        );
+
+        if (!cancelled) {
+          const next = latest + 1;
+          setNextVer(next);
+          setVersionName(`Mix V${next} - Revised Balance`);
+        }
+      } catch {}
+    };
+
+    loadNextVersion();
+    return () => { cancelled = true; };
+  }, [isUploadMixOpen, activeProject?.id, activeUploadSongId]);
 
   if (!isUploadMixOpen || !activeProject) return null;
 
@@ -70,7 +105,7 @@ export const UploadMixModal: React.FC = () => {
           fileName: audioFile.name,
           fileType,
           fileSize: audioFile.size,
-          songId: null,
+          songId: activeUploadSongId || null,
           notes: notes.trim() || 'Addressed client feedback and refined balance.',
         }),
       });
@@ -128,7 +163,7 @@ export const UploadMixModal: React.FC = () => {
           fileName: cleanName,
           fileType,
           fileSize: audioFile.size,
-          songId: null,
+          songId: activeUploadSongId || null,
           notes: notes.trim() || 'Addressed client feedback and refined balance.',
         }),
       });
@@ -141,13 +176,15 @@ export const UploadMixModal: React.FC = () => {
       setStatus('Publishing mix version…');
 
       // Keep the current studio preview responsive while the durable version is saved in Supabase.
-      uploadMixVersion(
-        activeProject.id,
-        cleanName,
-        notes.trim() || 'Addressed client feedback and refined balance.',
-        audioFile,
-        Number(lufs)
-      );
+      if (!activeUploadSongId) {
+        uploadMixVersion(
+          activeProject.id,
+          cleanName,
+          notes.trim() || 'Addressed client feedback and refined balance.',
+          audioFile,
+          Number(lufs)
+        );
+      }
       setProgress(100);
       setStatus('Mix published successfully.');
       setSuccess(true);
@@ -170,11 +207,14 @@ export const UploadMixModal: React.FC = () => {
               V{nextVer}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Upload Mix V{nextVer}</h3>
+              <h3 className="text-lg font-bold text-white">{activeUploadSongId ? 'Upload for Client Review' : `Upload Mix V${nextVer}`}</h3>
               <p className="text-xs text-zinc-400">{activeProject.title}</p>
             </div>
           </div>
-          <button type="button" disabled={isSubmitting} onClick={() => setIsUploadMixOpen(false)}
+          <button type="button" disabled={isSubmitting} onClick={() => {
+              setIsUploadMixOpen(false);
+              setActiveUploadSongId(null);
+            }}
             className="p-1.5 text-zinc-400 hover:text-white rounded-lg transition-colors disabled:opacity-40">
             <X size={18} />
           </button>
