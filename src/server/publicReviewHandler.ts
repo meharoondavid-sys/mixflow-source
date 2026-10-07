@@ -118,7 +118,7 @@ export async function handlePublicReviewFeedback(ctx: PublicReviewContext) {
   if (!found || !ctx.body?.versionId) return { status: 400, body: { error: 'Invalid review request.' } };
   const timestamp = Number(ctx.body.timestampSeconds);
   if (!Number.isFinite(timestamp) || timestamp < 0 || !String(ctx.body.comment || '').trim()) return { status: 400, body: { error: 'Timestamp and feedback comment are required.' } };
-  const { data: version } = await found.db.from('project_file_versions').select('id, song_id').eq('id', ctx.body.versionId).eq('project_id', ctx.projectId).eq('song_id', ctx.songId).maybeSingle();
+  const { data: version } = await found.db.from('project_file_versions').select('id, song_id, version_number').eq('id', ctx.body.versionId).eq('project_id', ctx.projectId).eq('song_id', ctx.songId).maybeSingle();
   if (!version) return { status: 404, body: { error: 'Audio version not found.' } };
   const row = { id: crypto.randomUUID(), organization_id: found.project.organization_id, project_id: ctx.projectId, song_id: ctx.songId, version_id: version.id, client_id: found.project.client_id, author_id: null, author_name: String(ctx.body.authorName || 'Client').trim().slice(0,100) || 'Client', author_role: 'client', timestamp_seconds: Math.round(timestamp * 100) / 100, comment: String(ctx.body.comment).trim(), status: 'open', created_at: new Date().toISOString(), resolved_at: null, resolved_by: null };
   const { data, error } = await found.db.from('project_feedback').insert(row).select().single();
@@ -128,8 +128,8 @@ export async function handlePublicReviewFeedback(ctx: PublicReviewContext) {
     found.project,
     'feedback_added',
     'New client feedback',
-    \`Client added feedback on \${found.song.title} — V\${version.version_number}: "\${row.comment}"\`,
-    \`#/projects/\${ctx.projectId}\`,
+    `Client added feedback on ${found.song.title} — V${version.version_number}: "${row.comment}"`,
+    `#/projects/${ctx.projectId}`,
   );
   return { status: 201, body: { feedback: data } };
 }
@@ -172,8 +172,8 @@ export async function handlePublicReviewAction(ctx: PublicReviewContext) {
   const notificationType = action === 'revision_requested' ? 'revision_requested' : 'version_approved';
   const notificationTitle = action === 'revision_requested' ? 'Client requested a revision' : 'Client approved the mix';
   const notificationMessage = action === 'revision_requested'
-    ? \`Client requested a revision for \${found.song.title} — V\${version.version_number}.\`
-    : \`Client approved \${found.song.title} — V\${version.version_number}.\`;
-  await notifyProjectStaff(found.db, found.project, notificationType, notificationTitle, notificationMessage, \`#/projects/\${ctx.projectId}\`);
+    ? `Client requested a revision for ${found.song.title} — V${version.version_number}.`
+    : `Client approved ${found.song.title} — V${version.version_number}.`;
+  await notifyProjectStaff(found.db, found.project, notificationType, notificationTitle, notificationMessage, `#/projects/${ctx.projectId}`);
   return { status: 200, body: { project } };
 }
