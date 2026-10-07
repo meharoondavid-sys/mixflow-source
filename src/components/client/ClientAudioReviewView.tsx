@@ -70,8 +70,13 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   };
 
   // Load project status for the review workflow.
+  // Preview/demo projects are intentionally self-contained and must not depend on Supabase.
   useEffect(() => {
     let isCancelled = false;
+    if (projectId.startsWith('preview-')) {
+      setProjectStatus('in_review');
+      return () => { isCancelled = true; };
+    }
     const loadProjectStatus = async () => {
       const sb = getSupabase();
       const { data, error } = await sb.from('projects').select('status').eq('id', projectId).single();
