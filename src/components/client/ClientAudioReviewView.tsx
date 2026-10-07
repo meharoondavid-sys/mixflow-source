@@ -325,6 +325,24 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
   const canTakeReviewAction = projectStatus === 'in_review' && isSelectedLatest && !!selectedVersionId;
 
+  const handleDeleteFeedback = async (feedbackId: string) => {
+    if (!window.confirm('Remove this feedback? This cannot be undone.')) return;
+    try {
+      const token = publicReviewToken;
+      if (!token || !selectedSongId) return;
+      const response = await fetch(`/api/public-review/${projectId}/${selectedSongId}/feedback/${feedbackId}?token=${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to remove feedback.');
+      }
+      setFeedbackList((items) => items.filter((item) => item.id !== feedbackId));
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : 'Failed to remove feedback.');
+    }
+  };
+
   const handleReviewAction = async (action: 'revision_requested' | 'mix_approved') => {
     if (!selectedVersionId || !canTakeReviewAction || reviewActionLoading) return;
     if (action === 'mix_approved' && openCount > 0) {
@@ -872,6 +890,14 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                           {item.status === 'resolved' && <CheckCircle2 size={10} />}
                           <span>{item.status}</span>
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFeedback(item.id)}
+                          className="text-[10px] text-zinc-500 hover:text-red-400 transition cursor-pointer"
+                          title="Remove this feedback"
+                        >
+                          Remove
+                        </button>
                       </div>
 
                       <p className="text-zinc-300 leading-relaxed text-xs">{item.comment}</p>
