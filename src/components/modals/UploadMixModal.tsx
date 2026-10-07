@@ -132,7 +132,7 @@ export const UploadMixModal: React.FC = () => {
       await new Promise<void>((resolve, reject) => {
         const upload = new TusUpload(audioFile, {
           endpoint,
-          headers: { apikey: getSupabaseAnonKey(), 'x-signature': token },
+          headers: {\n            apikey: getSupabaseAnonKey(),\n            authorization: `Bearer ${accessToken}`,\n            'x-signature': token,\n          },
           metadata: {
             bucketName: 'project-files',
             objectName: storagePath,
