@@ -33,6 +33,7 @@ export const ClientPortal: React.FC = () => {
   const [publicReviewData, setPublicReviewData] = useState<any>(null);
   const [publicReviewLoading, setPublicReviewLoading] = useState(false);
   const [publicReviewError, setPublicReviewError] = useState<string | null>(null);
+  const isPublicReviewRoute = /^#\/?review\//.test(window.location.hash);
 
   // Sync route with window hash
   useEffect(() => {
@@ -97,7 +98,7 @@ export const ClientPortal: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-emerald-500 selection:text-black flex flex-col">
-      <ClientPortalNavbar profile={profile} onSignOut={signOut} />
+      {!isPublicReviewRoute && <ClientPortalNavbar profile={profile} onSignOut={signOut} />}
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
         {publicReviewToken ? (
