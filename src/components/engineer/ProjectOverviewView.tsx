@@ -1713,12 +1713,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
     </div>
   );
 };
-, EUR: '€', GBP: '£', CAD: 'C
-    label: project.status,
-    color: 'text-zinc-300',
-    bg: 'bg-zinc-800',
-    border: 'border-zinc-700',
-  };
+
 
   const handleStatusChange = async (newStatus: ProjectStatus) => {
     setIsUpdatingStatus(true);
