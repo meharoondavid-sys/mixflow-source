@@ -30,9 +30,10 @@ interface ClientAudioReviewViewProps {
   projectId: string;
   songs: Array<{ id: string; title: string; track_number: number }>;
   initialSongId?: string | null;
+  publicReviewToken?: string | null;
 }
 
-export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs, initialSongId }) => {
+export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs, initialSongId, publicReviewToken }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSongId && songs.some((song) => song.id === initialSongId) ? initialSongId : (songs[0]?.id || null));
   const [versions, setVersions] = useState<ProjectFileVersionRecord[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
@@ -92,6 +93,26 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     let isCancelled = false;
     const loadVersions = async () => {
       try {
+        if (publicReviewToken && selectedSongId) {
+          const publicRes = await fetch(`/api/public-review/${projectId}/${selectedSongId}?token=${encodeURIComponent(publicReviewToken)}`);
+          if (!publicRes.ok) return;
+          const publicData = await publicRes.json();
+          if (!isCancelled) {
+            const vList: ProjectFileVersionRecord[] = publicData.versions || [];
+            setVersions(vList);
+            setFeedbackList(publicData.feedback || []);
+            setProjectStatus(publicData.project?.status || 'in_review');
+            if (vList.length > 0) {
+              const latest = vList[vList.length - 1];
+              if (!selectedVersionId || !vList.some(v => v.id === selectedVersionId)) setSelectedVersionId(latest.id);
+            } else {
+              setSelectedVersionId(null);
+              setPlaybackUrl(null);
+            }
+          }
+          return;
+        }
+
         const token = await getAuthToken();
         if (!token) return;
 
@@ -128,7 +149,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     return () => {
       isCancelled = true;
     };
-  }, [projectId, selectedSongId]);
+  }, [projectId, selectedSongId, publicReviewToken]);
 
   // 2. Fetch feedback and audio stream when selectedVersionId changes
   useEffect(() => {
@@ -142,11 +163,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
     const loadFeedback = async () => {
       try {
-        const token = await getAuthToken();
-        if (!token) return;
-
-        const res = await fetch(`/api/projects/${projectId}/feedback?versionId=${selectedVersionId}`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const token = publicReviewToken ? null : await getAuthToken();
+        const feedbackUrl = publicReviewToken
+          ? `/api/public-review/${projectId}/${selectedSongId}/feedback?token=${encodeURIComponent(publicReviewToken)}`
+          : `/api/projects/${projectId}/feedback?versionId=${selectedVersionId}`;
+        const res = await fetch(feedbackUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (res.ok && !isCancelled) {
           const data = await res.json();
@@ -161,11 +183,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
       setLoadingAudio(true);
       setAudioError(null);
       try {
-        const token = await getAuthToken();
-        if (!token) return;
-
-        const res = await fetch(`/api/projects/${projectId}/versions/${selectedVersionId}/playback-url`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const token = publicReviewToken ? null : await getAuthToken();
+        const playbackUrlEndpoint = publicReviewToken
+          ? `/api/public-review/${projectId}/${selectedSongId}/versions/${selectedVersionId}/playback-url?token=${encodeURIComponent(publicReviewToken)}`
+          : `/api/projects/${projectId}/versions/${selectedVersionId}/playback-url`;
+        const res = await fetch(playbackUrlEndpoint, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 
         if (!res.ok) {
@@ -198,7 +221,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
       setIsPlaying(false);
       setCurrentTime(0);
     };
-  }, [projectId, selectedVersionId]);
+  }, [projectId, selectedVersionId, publicReviewToken]);
 
   // Format seconds to mm:ss
   const formatTime = (secs: number) => {
@@ -267,13 +290,15 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     setFeedbackError(null);
 
     try {
-      const token = await getAuthToken();
-      if (!token) throw new Error('Authentication required.');
-
-      const res = await fetch(`/api/projects/${projectId}/feedback`, {
+      const token = publicReviewToken ? null : await getAuthToken();
+      if (!publicReviewToken && !token) throw new Error('Authentication required.');
+      const feedbackEndpoint = publicReviewToken
+        ? `/api/public-review/${projectId}/${selectedSongId}/feedback?token=${encodeURIComponent(publicReviewToken)}`
+        : `/api/projects/${projectId}/feedback`;
+      const res = await fetch(feedbackEndpoint, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -321,14 +346,24 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     setReviewActionLoading(true);
     setReviewActionError(null);
     try {
-      const sb = getSupabase();
-      const { error } = await sb.rpc('client_review_action', {
-        p_project_id: projectId,
-        p_version_id: selectedVersionId,
-        p_action: action,
-        p_note: null,
-      });
-      if (error) throw error;
+      if (publicReviewToken) {
+        const res = await fetch(`/api/public-review/${projectId}/${selectedSongId}/action?token=${encodeURIComponent(publicReviewToken)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ versionId: selectedVersionId, action }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Unable to update the review status.');
+      } else {
+        const sb = getSupabase();
+        const { error } = await sb.rpc('client_review_action', {
+          p_project_id: projectId,
+          p_version_id: selectedVersionId,
+          p_action: action,
+          p_note: null,
+        });
+        if (error) throw error;
+      }
       setProjectStatus(action === 'revision_requested' ? 'needs_revision' : 'approved');
       setReviewAction(action);
       setVersions(prev => prev.map(v => v.id === selectedVersionId
