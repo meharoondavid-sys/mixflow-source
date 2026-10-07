@@ -39,7 +39,7 @@ async function getProject(ctx: PublicReviewContext) {
 }
 
 export async function handleCreatePublicReviewLink(ctx: PublicReviewContext & { authHeader?: string }) {
-  const token = ctx.authHeader?.replace(/^Bearer\\s+/, '').trim();
+  const token = ctx.authHeader?.replace(/^Bearer\s+/, '').trim();
   if (!token) return { status: 401, body: { error: 'Authentication required.' } };
 
   // Validate the engineer session server-side. The service-role client can
