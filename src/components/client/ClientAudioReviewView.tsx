@@ -30,9 +30,10 @@ interface ClientAudioReviewViewProps {
   songs: Array<{ id: string; title: string; track_number: number }>;
   initialSongId?: string | null;
   publicReviewToken?: string | null;
+  onProjectApproved?: () => void;
 }
 
-export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs, initialSongId, publicReviewToken }) => {
+export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs, initialSongId, publicReviewToken, onProjectApproved }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSongId && songs.some((song) => song.id === initialSongId) ? initialSongId : (songs[0]?.id || null));
   const [versions, setVersions] = useState<ProjectFileVersionRecord[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
@@ -372,6 +373,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
       }
       setProjectStatus(action === 'revision_requested' ? 'needs_revision' : 'approved');
       setReviewAction(action);
+      if (action === 'mix_approved' && publicReviewToken) onProjectApproved?.();
       setVersions(prev => prev.map(v => v.id === selectedVersionId
         ? { ...v, status: action === 'revision_requested' ? 'revision_requested' : 'approved' }
         : v
