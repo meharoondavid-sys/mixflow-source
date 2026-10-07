@@ -537,22 +537,30 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             </div>
           )}
 
-          {/* Review summary + quick actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-              <div className="text-[11px] uppercase tracking-wider text-emerald-400 font-bold">Current review</div>
-              <div className="mt-1 text-xl font-extrabold text-white">V{selectedVersion?.version_number}</div>
-              <div className="text-xs text-zinc-500 mt-1">{isSelectedLatest ? 'Latest version' : 'Earlier version'}</div>
+          {/* Clean version switcher */}
+          <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-1.5 shadow-inner">
+            <div className="flex items-stretch overflow-x-auto">
+              {versions.map((ver) => {
+                const isSelected = ver.id === selectedVersionId;
+                const isLatest = ver.id === latestVersion?.id;
+                return (
+                  <button
+                    key={ver.id}
+                    type="button"
+                    onClick={() => setSelectedVersionId(ver.id)}
+                    className={`flex-1 min-w-[92px] px-4 py-2.5 rounded-xl transition cursor-pointer text-center ${isSelected ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/10' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'}`}
+                  >
+                    <div className="text-xs font-extrabold">V{ver.version_number}</div>
+                    <div className={`text-[9px] mt-0.5 font-medium ${isSelected ? 'text-black/70' : 'text-zinc-600'}`}>
+                      {isLatest ? 'Latest' : ver.version_number === 1 ? 'Initial' : 'Previous'}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            <button onClick={jumpToNextChange} disabled={!feedbackList.some(f => Number(f.timestamp_seconds) > currentTime && f.status !== 'resolved')} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-left hover:border-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed">
-              <div className="flex items-center gap-2 text-sm font-bold text-white"><ListMusic size={16} className="text-emerald-400"/>Jump to next change</div>
-              <div className="text-xs text-zinc-500 mt-1">{openCount} open note{openCount === 1 ? '' : 's'} on this version</div>
-            </button>
-            <button onClick={() => setShowHistory(true)} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-left hover:border-zinc-700">
-              <div className="flex items-center gap-2 text-sm font-bold text-white"><History size={16} className="text-emerald-400"/>Revision history</div>
-              <div className="text-xs text-zinc-500 mt-1">{versions.length} saved pass{versions.length === 1 ? '' : 'es'}</div>
-            </button>
-          </div>          {/* Audio Player Card */}
+          </div>
+
+          {/* Audio Player Card */}
           <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-5 space-y-4 shadow-inner">
             <audio
               ref={audioRef}
@@ -571,25 +579,6 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
             />
 
-            {/* Version selector is part of the player */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-zinc-800/60">
-              <span className="text-[11px] text-zinc-500 font-medium shrink-0">Versions:</span>
-              {versions.map((ver) => {
-                const isSelected = ver.id === selectedVersionId;
-                const isLatest = ver.id === latestVersion?.id;
-                return (
-                  <button
-                    key={ver.id}
-                    onClick={() => setSelectedVersionId(ver.id)}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${isSelected ? 'bg-emerald-500 text-black font-bold' : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800'}`}
-                  >
-                    <span>V{ver.version_number}</span>
-                    {isLatest && <span className={`text-[8px] px-1 py-0.5 rounded font-bold uppercase ${isSelected ? 'bg-black/15 text-black' : 'bg-emerald-500/10 text-emerald-400'}`}>Latest</span>}
-                    {ver.feedback_count ? <span className={`text-[9px] px-1 py-0.5 rounded-full ${isSelected ? 'bg-black/15 text-black' : 'bg-zinc-800 text-zinc-400'}`}>{ver.feedback_count}</span> : null}
-                  </button>
-                );
-              })}
-            </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -671,6 +660,36 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               </div>
               <div className="flex justify-between text-[11px] font-mono text-zinc-500"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
             </div>
+            {/* Compact review context under the waveform */}
+            <div className="space-y-3">
+              {feedbackList.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {feedbackList.slice().sort((a, b) => Number(a.timestamp_seconds) - Number(b.timestamp_seconds)).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSeek(Number(item.timestamp_seconds))}
+                      className="shrink-0 min-w-[132px] rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-left hover:border-zinc-700 transition cursor-pointer"
+                    >
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
+                        <span>{formatTime(Number(item.timestamp_seconds))}</span>
+                        <span className="text-zinc-700">•</span>
+                        <span className="text-zinc-500 truncate">{item.author_name}</span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-zinc-300 truncate">{item.comment}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3.5 py-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-400">Changes in V{selectedVersion?.version_number}</span>
+                  {selectedVersion?.id === latestVersion?.id && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Latest</span>}
+                </div>
+                <p className="text-xs leading-relaxed text-zinc-400">{selectedVersion?.notes?.trim() || 'No change notes were added for this version.'}</p>
+              </div>
+            </div>
             {audioError && (
               <p className="text-xs text-red-400 bg-red-950/40 p-2.5 rounded-xl border border-red-900/50">
                 {audioError}
@@ -678,50 +697,11 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             )}
           </div>
 
-          {/* Changes made across versions */}
-          <div className="bg-zinc-950/50 border border-zinc-800/80 rounded-2xl p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <FileAudio size={15} className="text-emerald-400" />
-                Changes made in each version
-              </h3>
-              <p className="text-xs text-zinc-500 mt-1">A quick summary of what changed from one mix pass to the next.</p>
-            </div>
-            <div className="space-y-2">
-              {[...versions].reverse().map((version) => {
-                const isCurrent = version.id === selectedVersionId;
-                const versionNotes = version.notes?.trim();
-                return (
-                  <button
-                    key={version.id}
-                    type="button"
-                    onClick={() => setSelectedVersionId(version.id)}
-                    className={`w-full text-left rounded-xl border p-3.5 transition cursor-pointer ${isCurrent ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-white">V{version.version_number}</span>
-                          <span className="text-xs text-zinc-300 truncate">{version.name || `Mix V${version.version_number}`}</span>
-                          {version.id === latestVersion?.id && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Latest</span>}
-                        </div>
-                        <p className={`text-xs leading-relaxed mt-1.5 ${versionNotes ? 'text-zinc-400' : 'text-zinc-600 italic'}`}>
-                          {versionNotes || 'No change notes were added for this version.'}
-                        </p>
-                      </div>
-                      {isCurrent && <span className="text-[9px] uppercase font-bold text-emerald-400 shrink-0">Selected</span>}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Feedback Section */}
           <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div><h3 className="text-sm font-bold text-white">Feedback and requested changes</h3><p className="text-xs text-zinc-500 mt-1">Each note is pinned to a moment in the audio.</p></div>
-              <button type="button" onClick={() => { setFeedbackTimestamp(Math.round(currentTime * 10) / 10); setShowFeedbackForm((open) => !open); }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-black hover:bg-emerald-400 transition cursor-pointer"><MessageSquarePlus size={14} /> {showFeedbackForm ? 'Cancel feedback' : '+ Add Feedback'}</button>
+              <div><h3 className="text-sm font-bold text-white">Feedback & Comments</h3><p className="text-xs text-zinc-500 mt-1">Each note is pinned to a moment in the audio.</p></div>
+              <button type="button" onClick={() => { setFeedbackTimestamp(Math.round(currentTime * 10) / 10); setShowFeedbackForm((open) => !open); }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-black hover:bg-emerald-400 transition cursor-pointer"><MessageSquarePlus size={14} /> {showFeedbackForm ? 'Cancel comment' : '+ Add comment'}</button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Feedback Input Form */}
