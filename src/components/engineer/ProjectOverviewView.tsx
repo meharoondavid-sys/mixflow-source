@@ -314,6 +314,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   }
 
   const balance = paymentSummary.outstanding_balance;
+  const statusConfig = PROJECT_STATUS_CONFIG[project.status] || PROJECT_STATUS_CONFIG.inquiry;
   const currencySymbol = ({ INR: '₹', USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$' } as Record<string, string>)[project.currency || 'INR'] || '₹';
 
   const handleStatusChange = async (newStatus: ProjectStatus) => {
