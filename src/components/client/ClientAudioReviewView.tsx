@@ -696,9 +696,9 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             </div>
             {/* Compact review context under the waveform */}
             <div className="space-y-3">
-              {feedbackList.length > 0 && (
+              {versionFeedback.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-1">
-                  {feedbackList.slice().sort((a, b) => Number(a.timestamp_seconds) - Number(b.timestamp_seconds)).map((item) => (
+                  {versionFeedback.slice().sort((a, b) => Number(a.timestamp_seconds) - Number(b.timestamp_seconds)).map((item) => (
                     <button
                       key={item.id}
                       type="button"
