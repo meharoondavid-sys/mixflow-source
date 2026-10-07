@@ -84,11 +84,18 @@ export const UploadMixModal: React.FC = () => {
         throw new Error('Could not find this project in the live workspace. Open the project from the Projects page and try again.');
       }
 
-      const { data: latestVersion, error: versionError } = await supabase
+      let latestVersionQuery = supabase
         .from('project_file_versions')
         .select('version_number')
-        .eq('project_id', activeProject.id)
-        .is('song_id', null)
+        .eq('project_id', activeProject.id);
+
+      if (activeUploadSongId) {
+        latestVersionQuery = latestVersionQuery.eq('song_id', activeUploadSongId);
+      } else {
+        latestVersionQuery = latestVersionQuery.is('song_id', null);
+      }
+
+      const { data: latestVersion, error: versionError } = await latestVersionQuery
         .order('version_number', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -224,7 +231,7 @@ export const UploadMixModal: React.FC = () => {
           <AlertCircle size={15} className="shrink-0 mt-0.5" /><span>{error}</span>
         </div>}
         {success && <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex gap-2">
-          <CheckCircle2 size={15} className="shrink-0 mt-0.5" /><span>Mix uploaded and saved to the project.</span>
+          <CheckCircle2 size={15} className="shrink-0 mt-0.5" /><span>Mix uploaded and saved for this song's client review.</span>
         </div>}
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
