@@ -36,9 +36,16 @@ async function getProject(ctx: PublicReviewContext) {
 }
 
 export async function handleCreatePublicReviewLink(ctx: PublicReviewContext & { authHeader?: string }) {
-  const db = client(ctx);
   const token = ctx.authHeader?.replace(/^Bearer\\s+/, '').trim();
   if (!token) return { status: 401, body: { error: 'Authentication required.' } };
+
+  // Link generation only needs the signed-in engineer's normal Supabase access.
+  // This avoids requiring the privileged service-role key for this operation.
+  const db = createClient(ctx.supabaseUrl, ctx.supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
   const { data: userData, error } = await db.auth.getUser(token);
   if (error || !userData.user) return { status: 401, body: { error: 'Invalid authentication session.' } };
   const { data: project } = await db.from('projects').select('id, organization_id').eq('id', ctx.projectId).maybeSingle();
