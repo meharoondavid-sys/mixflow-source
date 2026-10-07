@@ -8,6 +8,7 @@ import { AuthScreen } from './components/auth/AuthScreen';
 import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal';
 import { MobileProjectFileUploadView } from './components/engineer/MobileProjectFileUploadView';
 import { ClientAudioReviewView } from './components/client/ClientAudioReviewView';
+import { PublicReviewView } from './components/client/PublicReviewView';
 
 // Modals
 const DashboardView = lazy(() => import('./components/engineer/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -257,6 +258,11 @@ const AppContent: React.FC = () => {
 };
 
 export default function App() {
+  // Public review links are intentionally outside AuthProvider: clients do not need a MixFlow account.
+  if (/^#\/?review\//.test(window.location.hash)) {
+    return <PublicReviewView />;
+  }
+
   // Keep the mobile upload route outside the main studio providers.
   // This minimizes memory while Android's native file picker is open.
   const mobileUploadMatch = window.location.hash.match(/^#\/mobile-upload\/([^?]+)/);
