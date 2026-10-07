@@ -121,7 +121,8 @@ export const PublicReviewView: React.FC = () => {
             <p className="text-sm text-zinc-400 mt-2">{error}</p>
           </div>
         ) : (
-          <ClientAudioReviewView
+          <>
+            <ClientAudioReviewView
             projectId={data.project.id}
             songs={[data.song]}
             initialSongId={data.song.id}
@@ -181,6 +182,7 @@ export const PublicReviewView: React.FC = () => {
               )}
             </section>
           )}
+          </>
         )}
       </main>
     </div>
