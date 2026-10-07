@@ -366,14 +366,16 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   };
 
   // Filter feedback
-  const filteredFeedback = feedbackList.filter((fb) => {
+  const versionFeedback = feedbackList.filter((fb) => fb.version_id === selectedVersionId);
+
+  const filteredFeedback = versionFeedback.filter((fb) => {
     if (feedbackFilter === 'open') return fb.status === 'open';
     if (feedbackFilter === 'resolved') return fb.status === 'resolved';
     return true;
   });
 
-  const openCount = feedbackList.filter((f) => f.status === 'open').length;
-  const resolvedCount = feedbackList.filter((f) => f.status === 'resolved').length;
+  const openCount = versionFeedback.filter((f) => f.status === 'open').length;
+  const resolvedCount = versionFeedback.filter((f) => f.status === 'resolved').length;
 
   return (
     <div className="bg-[#080b10] border border-[#1c2430] rounded-[28px] p-3 sm:p-6 space-y-4 sm:space-y-5">
