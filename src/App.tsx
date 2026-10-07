@@ -93,6 +93,9 @@ const AppContent: React.FC = () => {
         setCurrentView('engineer');
         setActiveProjectId(null);
         setEngineerTab('clients');
+      } else if (hash.startsWith('#/review/') || hash.startsWith('#review/')) {
+        setCurrentView('client');
+        setActiveProjectId(null);
       } else if (hash.startsWith('#/client/') || hash.startsWith('#client/')) {
         // Real Client Portal routes must stay in the Client Portal, even if
         // the browser currently has a studio staff session. This is important
