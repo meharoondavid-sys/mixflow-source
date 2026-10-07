@@ -61,7 +61,7 @@ import {
   handleCollaboratorCreateFeedback,
 } from './src/server/collaboratorProjectHandler.js';
 
-dotenv.config({ override: true });
+import {\n  handleCreatePublicReviewLink,\n  handlePublicReview,\n  handlePublicReviewPlayback,\n  handlePublicReviewFeedback,\n  handlePublicReviewAction,\n} from './src/server/publicReviewHandler.js';\n\ndotenv.config({ override: true });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -920,7 +920,7 @@ async function startServer() {
     });
   });
 
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Public no-login client review links\n  const publicReviewContext = (req: express.Request) => ({\n    authHeader: req.headers.authorization,\n    projectId: req.params.projectId,\n    songId: req.params.songId,\n    token: typeof req.query.token === 'string' ? req.query.token : undefined,\n    versionId: req.params.versionId,\n    body: req.body,\n    supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',\n    supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',\n    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',\n  });\n\n  app.post('/api/public-review/:projectId/:songId/link', async (req, res) => {\n    try { const result = await handleCreatePublicReviewLink(publicReviewContext(req)); return res.status(result.status).json(result.body); }\n    catch (err) { console.error('[MixFlow Server] Public review link error:', err); return res.status(500).json({ error: 'Failed to create review link.' }); }\n  });\n\n  app.get('/api/public-review/:projectId/:songId', async (req, res) => {\n    try { const result = await handlePublicReview(publicReviewContext(req)); return res.status(result.status).json(result.body); }\n    catch (err) { console.error('[MixFlow Server] Public review load error:', err); return res.status(500).json({ error: 'Failed to load public review.' }); }\n  });\n\n  app.get('/api/public-review/:projectId/:songId/versions/:versionId/playback-url', async (req, res) => {\n    try { const result = await handlePublicReviewPlayback(publicReviewContext(req)); return res.status(result.status).json(result.body); }\n    catch (err) { console.error('[MixFlow Server] Public review playback error:', err); return res.status(500).json({ error: 'Failed to generate playback URL.' }); }\n  });\n\n  app.post('/api/public-review/:projectId/:songId/feedback', async (req, res) => {\n    try { const result = await handlePublicReviewFeedback(publicReviewContext(req)); return res.status(result.status).json(result.body); }\n    catch (err) { console.error('[MixFlow Server] Public review feedback error:', err); return res.status(500).json({ error: 'Failed to save feedback.' }); }\n  });\n\n  app.post('/api/public-review/:projectId/:songId/action', async (req, res) => {\n    try { const result = await handlePublicReviewAction(publicReviewContext(req)); return res.status(result.status).json(result.body); }\n    catch (err) { console.error('[MixFlow Server] Public review action error:', err); return res.status(500).json({ error: 'Failed to update review status.' }); }\n  });\n\n  const isProduction = process.env.NODE_ENV === 'production';
 
   if (!isProduction) {
     // Development mode: Mount Vite dev server middlewares
