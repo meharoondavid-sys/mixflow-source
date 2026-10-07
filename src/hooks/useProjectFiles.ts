@@ -220,7 +220,22 @@ export function useProjectFiles(projectId?: string | null) {
     }
   };
 
-  // 4. Delete file
+  // 4. Create a client-shareable link (7 days)
+  const createClientShareLink = async (fileId: string): Promise<{ signedUrl: string | null; expiresAt: string | null; error: Error | null }> => {
+    if (!projectId || !session?.access_token) return { signedUrl: null, expiresAt: null, error: new Error('Authentication required.') };
+    try {
+      const res = await fetch('/api/projects/' + projectId + '/files/' + fileId + '/share-url', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to create client share link.');
+      if (!body.signedUrl) throw new Error('No share link returned.');
+      return { signedUrl: body.signedUrl, expiresAt: body.expiresAt || null, error: null };
+    } catch (err: any) {
+      return { signedUrl: null, expiresAt: null, error: new Error(err?.message || 'Failed to create client share link.') };
+    }
+  };
+  // 5. Delete file
   const deleteFile = async (fileId: string): Promise<{ error: Error | null }> => {
     if (!projectId || !session?.access_token) {
       return { error: new Error('Authentication required.') };
@@ -259,6 +274,7 @@ export function useProjectFiles(projectId?: string | null) {
     fetchFiles,
     uploadFile,
     downloadFile,
+    createClientShareLink,
     deleteFile,
     userId: session?.user?.id || null,
   };
