@@ -608,7 +608,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                  V{selectedVersion?.version_number} • Secure Stream
+                  V{selectedVersion?.version_number}
                   {selectedVersion?.notes && <span className="text-zinc-400 ml-2">“{selectedVersion.notes}”</span>}
                 </p>
               </div>
