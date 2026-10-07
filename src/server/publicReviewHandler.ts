@@ -103,6 +103,24 @@ export async function handlePublicReviewFeedback(ctx: PublicReviewContext) {
   return { status: 201, body: { feedback: data } };
 }
 
+export async function handlePublicReviewDeleteFeedback(ctx: PublicReviewContext) {
+  if (!verify(ctx)) return { status: 401, body: { error: 'Invalid or expired review link.' } };
+  const found = await getProject(ctx);
+  if (!found || !ctx.versionId) return { status: 400, body: { error: 'Invalid review request.' } };
+  const { data: feedback } = await found.db
+    .from('project_feedback')
+    .select('id, project_id, song_id, version_id, author_role')
+    .eq('id', ctx.versionId)
+    .eq('project_id', ctx.projectId)
+    .eq('song_id', ctx.songId)
+    .maybeSingle();
+  if (!feedback) return { status: 404, body: { error: 'Feedback not found.' } };
+  if (feedback.author_role !== 'client') return { status: 403, body: { error: 'Only client feedback can be removed here.' } };
+  const { error } = await found.db.from('project_feedback').delete().eq('id', ctx.versionId);
+  if (error) return { status: 500, body: { error: 'Failed to remove feedback.' } };
+  return { status: 200, body: { success: true } };
+}
+
 export async function handlePublicReviewAction(ctx: PublicReviewContext) {
   if (!verify(ctx)) return { status: 401, body: { error: 'Invalid or expired review link.' } };
   const found = await getProject(ctx);
