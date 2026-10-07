@@ -27,7 +27,8 @@ export const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'reset'>(() => {
     if (typeof window === 'undefined') return 'signin';
     const params = new URLSearchParams(window.location.search);
-    return window.location.hash.includes('type=recovery') || params.get('reset') === '1' ? 'reset' : 'signin';
+    if (window.location.hash.includes('type=recovery') || params.get('reset') === '1') return 'reset';
+    return params.get('signup') === '1' ? 'signup' : 'signin';
   });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
