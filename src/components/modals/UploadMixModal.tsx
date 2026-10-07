@@ -63,7 +63,7 @@ export const UploadMixModal: React.FC = () => {
       const fileType = audioFile.type || 'application/octet-stream';
 
       setStatus('Preparing secure upload…');
-      const prepareRes = await fetch(`/api/projects/${activeProject.id}/files/upload-url`, {
+      const prepareRes = await fetch(`/api/projects/${activeProject.id}/versions/upload-url`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,14 +71,15 @@ export const UploadMixModal: React.FC = () => {
           fileType,
           fileSize: audioFile.size,
           songId: null,
+          notes: notes.trim() || 'Addressed client feedback and refined balance.',
         }),
       });
       const prepareBody = await prepareRes.json().catch(() => ({}));
       if (!prepareRes.ok) {
         throw new Error(`Upload setup rejected (HTTP ${prepareRes.status}): ${prepareBody.error || 'Could not prepare upload.'}`);
       }
-      const { fileId, storagePath, token } = prepareBody;
-      if (!token) throw new Error('The secure upload token was not returned.');
+      const { versionId, storagePath, token } = prepareBody;
+      if (!versionId || !token) throw new Error('The secure version upload token was not returned.');
 
       setProgress(2);
       setStatus('Starting secure audio upload…');
@@ -118,41 +119,26 @@ export const UploadMixModal: React.FC = () => {
 
       setProgress(91);
       setStatus('Registering uploaded file…');
-      const confirmRes = await fetch(`/api/projects/${activeProject.id}/files/confirm`, {
+      const confirmRes = await fetch(`/api/projects/${activeProject.id}/versions/confirm`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fileId,
+          versionId,
           storagePath,
-          fileName: audioFile.name,
+          fileName: cleanName,
           fileType,
           fileSize: audioFile.size,
           songId: null,
+          notes: notes.trim() || 'Addressed client feedback and refined balance.',
         }),
       });
       const confirmBody = await confirmRes.json().catch(() => ({}));
       if (!confirmRes.ok) {
-        throw new Error(`File registration failed (HTTP ${confirmRes.status}): ${confirmBody.error || 'Could not register uploaded file.'}`);
+        throw new Error(`Mix version registration failed (HTTP ${confirmRes.status}): ${confirmBody.error || 'Could not publish this mix version.'}`);
       }
 
       setProgress(96);
       setStatus('Publishing mix version…');
-      const { error: insertError } = await supabase.from('project_file_versions').insert({
-        organization_id: projectRow.organization_id,
-        project_id: activeProject.id,
-        song_id: null,
-        file_id: fileId,
-        version_number: versionNumber,
-        name: cleanName,
-        storage_path: storagePath,
-        file_type: fileType,
-        file_size: audioFile.size,
-        notes: notes.trim() || 'Addressed client feedback and refined balance.',
-        uploaded_by: sessionData.session.user.id,
-      });
-      if (insertError) {
-        throw new Error(`Audio uploaded, but the mix version could not be published: ${insertError.message}`);
-      }
 
       // Keep the current studio preview responsive while the durable version is saved in Supabase.
       uploadMixVersion(
