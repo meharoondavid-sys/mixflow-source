@@ -55,7 +55,7 @@ export async function handleCreatePublicReviewLink(ctx: PublicReviewContext & { 
   if (!membership || !['owner','admin','engineer','producer'].includes(membership.role)) return { status: 403, body: { error: 'Forbidden.' } };
   const { data: song } = await db.from('project_songs').select('id').eq('id', ctx.songId).eq('project_id', ctx.projectId).maybeSingle();
   if (!song) return { status: 404, body: { error: 'Song not found.' } };
-  return { status: 200, body: { token: expectedToken(ctx.projectId, ctx.songId, ctx.supabaseServiceRoleKey) } };
+  return { status: 200, body: { token: expectedToken(ctx.projectId, ctx.songId, ctx.publicReviewSecret) } };
 }
 
 export async function handlePublicReview(ctx: PublicReviewContext) {
