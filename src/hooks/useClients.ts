@@ -103,7 +103,7 @@ export function useClients() {
   }, [fetchClients]);
 
   // Fetch associated projects for a specific client
-  const fetchClientProjects = async (
+  const fetchClientProjects = useCallback(async (
     clientId: string
   ): Promise<{ projects: ClientProjectItem[]; error: Error | null }> => {
     if (!organization?.id || !clientId) {
@@ -140,7 +140,7 @@ export function useClients() {
       console.error('[MixFlow Clients] Unexpected project query error:', err);
       return { projects: [], error: new Error(err?.message || 'Failed to fetch associated projects') };
     }
-  };
+  }, [organization?.id]);
 
   const createClient = async (
     input: ClientInsertInput
