@@ -102,6 +102,7 @@ export const ClientPortal: React.FC = () => {
           <ClientAudioReviewView
             projectId={activeProject.id}
             songs={activeProject.songs}
+            initialSongId={reviewSongIdFromHash}
           />
         ) : activeProjectIdFromHash ? (
           /* Project Detail View */
