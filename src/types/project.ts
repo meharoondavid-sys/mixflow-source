@@ -47,6 +47,7 @@ export interface ProjectSongRecord {
 export interface SongInput {
   title: string;
   track_number: number;
+  bpm?: number | null;
 }
 
 export interface ProjectInsertInput {
