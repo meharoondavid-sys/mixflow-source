@@ -427,42 +427,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Versions Bar & Status */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="text-xs text-zinc-400 font-medium shrink-0">Mix Pass:</span>
-              {versions.map((ver) => {
-                const isSelected = ver.id === selectedVersionId;
-                const isLatest = ver.id === latestVersion?.id;
-                return (
-                  <button
-                    key={ver.id}
-                    onClick={() => setSelectedVersionId(ver.id)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                      isSelected
-                        ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
-                        : 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60'
-                    }`}
-                  >
-                    <span>V{ver.version_number}</span>
-                    {isLatest && (
-                      <span className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase ${isSelected ? 'bg-black/20 text-black' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                        Latest
-                      </span>
-                    )}
-                    {ver.feedback_count ? (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-black/20 text-black' : 'bg-zinc-700 text-zinc-300'}`}>
-                        {ver.feedback_count}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
 
+          {/* Version History */}
+          <div className="flex justify-end">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="self-start sm:self-auto px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer transition shrink-0"
+              className="px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer transition shrink-0"
             >
               <History size={13} className="text-zinc-400" />
               <span>Version History ({versions.length})</span>
@@ -598,7 +568,29 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 }
               }}
               onEnded={() => setIsPlaying(false)}
-            />            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+
+            />
+
+            {/* Version selector is part of the player */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-zinc-800/60">
+              <span className="text-[11px] text-zinc-500 font-medium shrink-0">Versions:</span>
+              {versions.map((ver) => {
+                const isSelected = ver.id === selectedVersionId;
+                const isLatest = ver.id === latestVersion?.id;
+                return (
+                  <button
+                    key={ver.id}
+                    onClick={() => setSelectedVersionId(ver.id)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${isSelected ? 'bg-emerald-500 text-black font-bold' : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800'}`}
+                  >
+                    <span>V{ver.version_number}</span>
+                    {isLatest && <span className={`text-[8px] px-1 py-0.5 rounded font-bold uppercase ${isSelected ? 'bg-black/15 text-black' : 'bg-emerald-500/10 text-emerald-400'}`}>Latest</span>}
+                    {ver.feedback_count ? <span className={`text-[9px] px-1 py-0.5 rounded-full ${isSelected ? 'bg-black/15 text-black' : 'bg-zinc-800 text-zinc-400'}`}>{ver.feedback_count}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-bold text-white truncate">
