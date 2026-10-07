@@ -29,11 +29,23 @@ export const ClientPortal: React.FC = () => {
 
   const [activeProjectIdFromHash, setActiveProjectIdFromHash] = useState<string | null>(null);
   const [reviewSongIdFromHash, setReviewSongIdFromHash] = useState<string | null>(null);
+  const [publicReviewToken, setPublicReviewToken] = useState<string | null>(null);
+  const [publicReviewData, setPublicReviewData] = useState<any>(null);
+  const [publicReviewLoading, setPublicReviewLoading] = useState(false);
+  const [publicReviewError, setPublicReviewError] = useState<string | null>(null);
 
   // Sync route with window hash
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
+      const publicMatch = hash.match(/^#\/?review\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\?token=([^&]+)/);
+      if (publicMatch) {
+        setActiveProjectIdFromHash(publicMatch[1]);
+        setReviewSongIdFromHash(publicMatch[2]);
+        setPublicReviewToken(decodeURIComponent(publicMatch[3]));
+        return;
+      }
+      setPublicReviewToken(null);
       const match = hash.match(/^#\/?client\/project\/([a-zA-Z0-9_-]+)(?:\/review\/([a-zA-Z0-9_-]+))?/);
       if (match && match[1]) {
         setActiveProjectIdFromHash(match[1]);
@@ -51,6 +63,28 @@ export const ClientPortal: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [fetchProjectDetail, setActiveProject]);
 
+  useEffect(() => {
+    if (!publicReviewToken || !activeProjectIdFromHash || !reviewSongIdFromHash) {
+      setPublicReviewData(null);
+      setPublicReviewError(null);
+      return;
+    }
+    let cancelled = false;
+    setPublicReviewLoading(true);
+    setPublicReviewError(null);
+    fetch(`/api/public-review/${activeProjectIdFromHash}/${reviewSongIdFromHash}?token=${encodeURIComponent(publicReviewToken)}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'This review link is invalid or unavailable.');
+        return data;
+      })
+      .then((data) => { if (!cancelled) setPublicReviewData(data); })
+      .catch((err) => { if (!cancelled) setPublicReviewError(err.message || 'Unable to load this review.'); })
+      .finally(() => { if (!cancelled) setPublicReviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [publicReviewToken, activeProjectIdFromHash, reviewSongIdFromHash]);
+
+
   const handleSelectProject = (projectId: string) => {
     window.location.hash = `#/client/project/${projectId}`;
   };
@@ -66,7 +100,23 @@ export const ClientPortal: React.FC = () => {
       <ClientPortalNavbar profile={profile} onSignOut={signOut} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
-        {!loading && !isClient ? (
+        {publicReviewToken ? (
+          publicReviewLoading ? (
+            <div className="max-w-xl mx-auto py-20 text-center text-zinc-400">Loading your review…</div>
+          ) : publicReviewError ? (
+            <div className="max-w-xl mx-auto bg-zinc-900 border border-red-900/50 rounded-3xl p-8 text-center">
+              <h2 className="text-lg font-bold text-white">Review link unavailable</h2>
+              <p className="text-sm text-zinc-400 mt-2">{publicReviewError}</p>
+            </div>
+          ) : publicReviewData ? (
+            <ClientAudioReviewView
+              projectId={publicReviewData.project.id}
+              songs={[publicReviewData.song]}
+              initialSongId={publicReviewData.song.id}
+              publicReviewToken={publicReviewToken}
+            />
+          ) : null
+        ) : !loading && !isClient ? (
           /* Non-client State: Authenticated user has no client profile linked */
           <div className="max-w-lg mx-auto bg-zinc-900/60 border border-zinc-800 rounded-3xl p-8 text-center space-y-4 shadow-xl my-12">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
