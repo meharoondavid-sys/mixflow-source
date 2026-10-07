@@ -314,12 +314,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   }
 
   const balance = paymentSummary.outstanding_balance;
-  const currencySymbol = ({ INR: '₹', USD: '
-    label: project.status,
-    color: 'text-zinc-300',
-    bg: 'bg-zinc-800',
-    border: 'border-zinc-700',
-  };
+  const currencySymbol = ({ INR: '₹', USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$' } as Record<string, string>)[project.currency || 'INR'] || '₹';
 
   const handleStatusChange = async (newStatus: ProjectStatus) => {
     setIsUpdatingStatus(true);
