@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, useRef, lazy, Suspense } from 'react';
 import { Disc3 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectsProvider } from './context/ProjectsContext';
@@ -46,6 +46,48 @@ const AppContent: React.FC = () => {
 
   const isPasswordRecovery = window.location.hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('reset') === '1';
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
+  const clientClaimInFlight = useRef(false);
+
+  // Complete the post-approval client account claim after a passwordless sign-in.
+  useEffect(() => {
+    if (!user || clientClaimInFlight.current) return;
+    const raw = window.localStorage.getItem('mixflow_client_claim');
+    if (!raw) return;
+
+    let claim: { projectId: string; songId: string; token: string; createdAt: number } | null = null;
+    try { claim = JSON.parse(raw); } catch { window.localStorage.removeItem('mixflow_client_claim'); }
+    if (!claim || Date.now() - claim.createdAt > 24 * 60 * 60 * 1000) {
+      window.localStorage.removeItem('mixflow_client_claim');
+      return;
+    }
+
+    clientClaimInFlight.current = true;
+    void (async () => {
+      try {
+        const { data: sessionData } = await getSupabase().auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) return;
+
+        const response = await fetch(`/api/public-review/${claim!.projectId}/${claim!.songId}/claim-account`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: claim!.token }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || 'Unable to save your project.');
+        }
+
+        window.localStorage.removeItem('mixflow_client_claim');
+        window.location.hash = '#/client/projects';
+      } catch (err) {
+        console.error('[MixFlow] Client account claim failed:', err);
+        window.localStorage.removeItem('mixflow_client_claim');
+      } finally {
+        clientClaimInFlight.current = false;
+      }
+    })();
+  }, [user]);
 
   const collaboratorMatch = window.location.hash.match(/^#\/collaborator\/invite\/([^/]+)$/);
   const collaboratorToken = collaboratorMatch?.[1] || null;
