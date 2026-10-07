@@ -38,6 +38,29 @@ async function getProject(ctx: PublicReviewContext) {
   return { db, project, song };
 }
 
+
+async function notifyProjectStaff(db: any, project: any, type: string, title: string, message: string, linkUrl: string) {
+  const { data: members } = await db
+    .from('organization_members')
+    .select('user_id, role')
+    .eq('organization_id', project.organization_id)
+    .in('role', ['owner', 'admin', 'engineer', 'producer']);
+  if (!members?.length) return;
+  const rows = members.map((member: any) => ({
+    id: crypto.randomUUID(),
+    organization_id: project.organization_id,
+    project_id: project.id,
+    recipient_user_id: member.user_id,
+    actor_user_id: null,
+    type,
+    title,
+    message,
+    link_url: linkUrl,
+    read_at: null,
+  }));
+  await db.from('project_notifications').insert(rows);
+}
+
 export async function handleCreatePublicReviewLink(ctx: PublicReviewContext & { authHeader?: string }) {
   const token = ctx.authHeader?.replace(/^Bearer\s+/, '').trim();
   if (!token) return { status: 401, body: { error: 'Authentication required.' } };
@@ -100,6 +123,14 @@ export async function handlePublicReviewFeedback(ctx: PublicReviewContext) {
   const row = { id: crypto.randomUUID(), organization_id: found.project.organization_id, project_id: ctx.projectId, song_id: ctx.songId, version_id: version.id, client_id: found.project.client_id, author_id: null, author_name: String(ctx.body.authorName || 'Client').trim().slice(0,100) || 'Client', author_role: 'client', timestamp_seconds: Math.round(timestamp * 100) / 100, comment: String(ctx.body.comment).trim(), status: 'open', created_at: new Date().toISOString(), resolved_at: null, resolved_by: null };
   const { data, error } = await found.db.from('project_feedback').insert(row).select().single();
   if (error) return { status: 500, body: { error: 'Failed to save feedback.' } };
+  await notifyProjectStaff(
+    found.db,
+    found.project,
+    'feedback_added',
+    'New client feedback',
+    \`Client added feedback on \${found.song.title} — V\${version.version_number}: "\${row.comment}"\`,
+    \`#/projects/\${ctx.projectId}\`,
+  );
   return { status: 201, body: { feedback: data } };
 }
 
@@ -138,5 +169,11 @@ export async function handlePublicReviewAction(ctx: PublicReviewContext) {
   await found.db.from('project_file_versions').update({ status: versionStatus }).eq('id', versionId);
   const { data: project, error } = await found.db.from('projects').update({ status: toStatus, updated_at: new Date().toISOString() }).eq('id', ctx.projectId).select().single();
   if (error) return { status: 500, body: { error: 'Failed to update review status.' } };
+  const notificationType = action === 'revision_requested' ? 'revision_requested' : 'version_approved';
+  const notificationTitle = action === 'revision_requested' ? 'Client requested a revision' : 'Client approved the mix';
+  const notificationMessage = action === 'revision_requested'
+    ? \`Client requested a revision for \${found.song.title} — V\${version.version_number}.\`
+    : \`Client approved \${found.song.title} — V\${version.version_number}.\`;
+  await notifyProjectStaff(found.db, found.project, notificationType, notificationTitle, notificationMessage, \`#/projects/\${ctx.projectId}\`);
   return { status: 200, body: { project } };
 }
