@@ -819,6 +819,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsNewProjectOpen,
         isUploadMixOpen,
         setIsUploadMixOpen,
+        activeUploadSongId,
+        setActiveUploadSongId,
         isPaymentModalOpen,
         setIsPaymentModalOpen,
         isInvoiceModalOpen,
