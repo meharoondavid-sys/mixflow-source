@@ -10,17 +10,18 @@ interface PublicReviewContext {
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceRoleKey: string;
+  publicReviewSecret?: string;
   createClientFn?: typeof createClient;
 }
 
-const client = (ctx: PublicReviewContext) => createClient(ctx.supabaseUrl, ctx.supabaseServiceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+const client = (ctx: PublicReviewContext) => createClient(ctx.supabaseUrl, ctx.supabaseServiceRoleKey || ctx.supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
 function expectedToken(projectId: string, songId: string, secret: string) {
   return crypto.createHmac('sha256', secret).update(`${projectId}:${songId}`).digest('base64url');
 }
 
 function verify(ctx: PublicReviewContext) {
-  const secret = ctx.supabaseServiceRoleKey;
+  const secret = ctx.publicReviewSecret || ctx.supabaseServiceRoleKey;
   if (!secret || !ctx.token) return false;
   const expected = expectedToken(ctx.projectId, ctx.songId, secret);
   const actual = Buffer.from(ctx.token);
@@ -43,7 +44,8 @@ export async function handleCreatePublicReviewLink(ctx: PublicReviewContext & { 
 
   // Validate the engineer session server-side. The service-role client can
   // verify the user's access token without relying on the browser's anon-key session state.
-  const db = createClient(ctx.supabaseUrl, ctx.supabaseServiceRoleKey, {
+  const db = createClient(ctx.supabaseUrl, ctx.supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
