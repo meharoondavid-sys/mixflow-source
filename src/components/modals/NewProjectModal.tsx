@@ -344,7 +344,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             <div>
               <label className="block text-zinc-300 font-medium mb-1">Currency</label>
               <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-emerald-500">
@@ -356,48 +356,27 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 <option value="AUD">AUD (A$)</option>
               </select>
             </div>
-          {/* Financials, Deadline &  */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             <div>
               <label className="block text-zinc-300 font-medium mb-1">Project Price</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">{{currency === 'INR' ? '₹' : currency === 'USD' ? '
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="850.00"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full pl-7 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500"
-                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">
+                  {currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'CAD' ? 'C$' : 'A$'}
+                </span>
+                <input type="number" min="0" step="0.01" placeholder="850.00" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full pl-7 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500" />
               </div>
             </div>
-
             <div>
               <label className="block text-zinc-300 font-medium mb-1">Deposit</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">{{currency === 'INR' ? '₹' : currency === 'USD' ? '
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="425.00"
-                  value={deposit}
-                  onChange={(e) => setDeposit(e.target.value)}
-                  className="w-full pl-7 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500"
-                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">
+                  {currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'CAD' ? 'C$' : 'A$'}
+                </span>
+                <input type="number" min="0" step="0.01" placeholder="425.00" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="w-full pl-7 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500" />
               </div>
             </div>
-
             <div>
               <label className="block text-zinc-300 font-medium mb-1">Target Deadline</label>
-              <input
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500"
-              />
+              <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500" />
             </div>
           </div>
 
