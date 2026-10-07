@@ -94,16 +94,10 @@ const AppContent: React.FC = () => {
         setActiveProjectId(null);
         setEngineerTab('clients');
       } else if (hash.startsWith('#/client/') || hash.startsWith('#client/')) {
-        // Studio staff should always stay in the Engineer Console when using
-        // normal client routes. Client review links remain explicitly supported
-        // through #/review/... above.
-        if (isStudioStaff && !isPreviewMode) {
-          setCurrentView('engineer');
-          setActiveProjectId(null);
-          setEngineerTab('projects');
-        } else {
-          setCurrentView('client');
-        }
+        // Real Client Portal routes must stay in the Client Portal, even if
+        // the browser currently has a studio staff session. This is important
+        // for song-specific review links sent to clients.
+        setCurrentView('client');
       } else if (hash.startsWith('#/project/') || hash.startsWith('#project/')) {
         const pId = hash.replace(/^#\/?project\//, '');
         if (pId) {
