@@ -2712,6 +2712,12 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="block text-zinc-300 font-medium mb-1">Currency</label>
+                  <select value={editCurrency} onChange={(e) => setEditCurrency(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-zinc-200 focus:outline-none focus:border-emerald-500">
+                    <option value="INR">INR (₹)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option><option value="CAD">CAD (C$)</option><option value="AUD">AUD (A$)</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-zinc-300 font-medium mb-1">Target Deadline</label>
                   <input
                     type="date"
@@ -4084,6 +4090,12 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-zinc-300 font-medium mb-1">Currency</label>
+                  <select value={editCurrency} onChange={(e) => setEditCurrency(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-zinc-200 focus:outline-none focus:border-emerald-500">
+                    <option value="INR">INR (₹)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option><option value="CAD">CAD (C$)</option><option value="AUD">AUD (A$)</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-zinc-300 font-medium mb-1">Target Deadline</label>
                   <input
@@ -5459,6 +5471,12 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-zinc-300 font-medium mb-1">Currency</label>
+                  <select value={editCurrency} onChange={(e) => setEditCurrency(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-zinc-200 focus:outline-none focus:border-emerald-500">
+                    <option value="INR">INR (₹)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option><option value="CAD">CAD (C$)</option><option value="AUD">AUD (A$)</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-zinc-300 font-medium mb-1">Target Deadline</label>
                   <input
