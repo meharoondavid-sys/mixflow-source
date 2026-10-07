@@ -68,6 +68,7 @@ import {
   handlePublicReviewFeedback,
   handlePublicReviewDeleteFeedback,
   handlePublicReviewAction,
+  handleClaimClientAccount,
 } from './src/server/publicReviewHandler.js';
 
 dotenv.config({ override: true });
@@ -970,6 +971,16 @@ async function startServer() {
   app.delete('/api/public-review/:projectId/:songId/feedback/:versionId', async (req, res) => {
     try { const result = await handlePublicReviewDeleteFeedback(publicReviewContext(req)); return res.status(result.status).json(result.body); }
     catch (err) { console.error('[MixFlow Server] Public review feedback deletion error:', err); return res.status(500).json({ error: 'Failed to remove feedback.' }); }
+  });
+
+  app.post('/api/public-review/:projectId/:songId/claim-account', async (req, res) => {
+    try {
+      const result = await handleClaimClientAccount(publicReviewContext(req));
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Client account claim error:', err);
+      return res.status(500).json({ error: 'Failed to link your MixFlow account.' });
+    }
   });
 
   app.post('/api/public-review/:projectId/:songId/action', async (req, res) => {
