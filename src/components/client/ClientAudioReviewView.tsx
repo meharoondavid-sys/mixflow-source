@@ -20,7 +20,6 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  GitCompareArrows,
   ListMusic
 } from 'lucide-react';
 import { ProjectFileVersionRecord, ProjectFeedbackRecord } from '../../types/versionFeedback';
@@ -40,8 +39,6 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const [feedbackList, setFeedbackList] = useState<ProjectFeedbackRecord[]>([]);
   const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'open' | 'resolved'>('all');
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
-  const [comparePlaying, setComparePlaying] = useState<'a' | 'b' | null>(null);
   
   // Audio Playback State
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -237,33 +234,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     if (mb >= 1) return `${mb.toFixed(1)} MB`;
     const kb = bytes / 1024;
     return `${kb.toFixed(1)} KB`;
-  };
-
-  const playVersionDirect = async (versionId: string) => {
-    try {
-      const token = publicReviewToken ? null : await getAuthToken();
-      if (!publicReviewToken && !token) throw new Error('Authentication required.');
-      const endpoint = publicReviewToken
-        ? `/api/public-review/${projectId}/${selectedSongId}/versions/${versionId}/playback-url?token=${encodeURIComponent(publicReviewToken)}`
-        : `/api/projects/${projectId}/versions/${versionId}/playback-url`;
-      const res = await fetch(endpoint, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      if (!res.ok) throw new Error('Failed to load comparison audio.');
-      const data = await res.json();
-      if (audioRef.current) {
-        audioRef.current.src = data.signedUrl;
-        await audioRef.current.play();
-        setIsPlaying(true);
-        setPlaybackUrl(data.signedUrl);
-        setCurrentTime(0);
-      }
-    } catch (err: any) {
-      setAudioError(err.message || 'Comparison playback error.');
-    }
-  };
-
-  const handlePlayPause = () => {
+  };  const handlePlayPause = () => {
     if (!audioRef.current || !playbackUrl) return;
     if (isPlaying) {
       audioRef.current.pause();
@@ -330,7 +301,6 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const selectedSong = songs.find((s) => s.id === selectedSongId);
   const selectedVersion = versions.find((v) => v.id === selectedVersionId);
   const latestVersion = versions.length > 0 ? versions[versions.length - 1] : null;
-  const compareVersion = versions.find((v) => v.id === compareVersionId) || null;
   const changeCount = selectedVersion?.feedback_count || 0;
   const jumpToNextChange = () => {
     const next = feedbackList.find((fb) => Number(fb.timestamp_seconds) > currentTime && fb.status !== 'resolved');
@@ -612,22 +582,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               <div className="flex items-center gap-2 text-sm font-bold text-white"><History size={16} className="text-emerald-400"/>Revision history</div>
               <div className="text-xs text-zinc-500 mt-1">{versions.length} saved pass{versions.length === 1 ? '' : 'es'}</div>
             </button>
-          </div>
-
-          {compareVersion && selectedVersion && compareVersion.id !== selectedVersion.id && (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-bold text-white"><GitCompareArrows size={16} className="text-emerald-400"/>A/B compare</div>
-                <div className="text-xs text-zinc-500 mt-1">A = V{selectedVersion.version_number} · B = V{compareVersion.version_number}</div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setComparePlaying('a'); playVersionDirect(selectedVersion.id); }} className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white">Play A</button>
-                <button onClick={() => { setComparePlaying('b'); playVersionDirect(compareVersion.id); }} className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold">Play B</button>
-              </div>
-            </div>
-          )}
-
-          {/* Audio Player Card */}
+          </div>          {/* Audio Player Card */}
           <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-5 space-y-4 shadow-inner">
             <audio
               ref={audioRef}
@@ -643,15 +598,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 }
               }}
               onEnded={() => setIsPlaying(false)}
-            />
-
-              <div className="flex items-center gap-2">
-                <select value={compareVersionId || ''} onChange={e => setCompareVersionId(e.target.value || null)} className="bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-1.5 text-[11px] text-zinc-300">
-                  <option value="">A/B compare…</option>
-                  {versions.filter(v => v.id !== selectedVersionId).map(v => <option key={v.id} value={v.id}>Compare V{v.version_number}</option>)}
-                </select>
-              </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            />            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-bold text-white truncate">
@@ -737,16 +684,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 {audioError}
               </p>
             )}
-          </div>
-
-          {comparePlaying && compareVersion && (
-            <div className="text-xs text-zinc-400 border border-zinc-800 rounded-xl px-3 py-2 bg-zinc-950/50">
-              Compare mode selected: {comparePlaying === 'a' ? 'A' : 'B'} = V{comparePlaying === 'a' ? selectedVersion?.version_number : compareVersion.version_number}. Use the version selector above to switch the primary player.
-              <button onClick={() => setComparePlaying(null)} className="ml-2 text-emerald-400 hover:underline">Close</button>
-            </div>
-          )}
-
-          {/* Feedback Section */}
+          </div>          {/* Feedback Section */}
           <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div><h3 className="text-sm font-bold text-white">Feedback and requested changes</h3><p className="text-xs text-zinc-500 mt-1">Each note is pinned to a moment in the audio.</p></div>
