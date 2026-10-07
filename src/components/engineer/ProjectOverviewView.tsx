@@ -38,6 +38,7 @@ import { ProjectPaymentsSection } from './ProjectPaymentsSection';
 import { ProjectDeliveriesSection } from './ProjectDeliveriesSection';
 import { useProjectPayments } from '../../hooks/useProjectPayments';
 import { useApp } from '../../context/AppContext';
+import { getSupabase } from '../../lib/supabase';
 import { 
   ProjectRecord, 
   ProjectType,
@@ -594,12 +595,25 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                             <button
                               type="button"
                               onClick={async () => {
-                                const url = `${window.location.origin}${window.location.pathname}#/client/project/${project.id}/review/${song.id}`;
                                 try {
-                                  await navigator.clipboard.writeText(url);
-                                  alert('Review link copied. Send this link to the client.');
-                                } catch {
-                                  window.prompt('Copy this review link:', url);
+                                  const { data: sessionData } = await getSupabase().auth.getSession();
+                                  const token = sessionData.session?.access_token;
+                                  if (!token) throw new Error('Your session has expired. Please sign in again.');
+                                  const response = await fetch(`/api/public-review/${project.id}/${song.id}/link`, {
+                                    method: 'POST',
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                  const data = await response.json().catch(() => ({}));
+                                  if (!response.ok || !data.token) throw new Error(data.error || 'Could not create review link.');
+                                  const url = `${window.location.origin}${window.location.pathname}#/review/${project.id}/${song.id}?token=${encodeURIComponent(data.token)}`;
+                                  try {
+                                    await navigator.clipboard.writeText(url);
+                                    alert('Review link copied. The client can open it without signing in.');
+                                  } catch {
+                                    window.prompt('Copy this review link:', url);
+                                  }
+                                } catch (error: any) {
+                                  alert(error?.message || 'Could not create review link.');
                                 }
                               }}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
