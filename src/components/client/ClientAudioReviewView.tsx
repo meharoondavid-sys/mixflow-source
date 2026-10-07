@@ -29,10 +29,11 @@ import { getSupabase } from '../../lib/supabase';
 interface ClientAudioReviewViewProps {
   projectId: string;
   songs: Array<{ id: string; title: string; track_number: number }>;
+  initialSongId?: string | null;
 }
 
-export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs }) => {
-  const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id || null);
+export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs, initialSongId }) => {
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSongId && songs.some((song) => song.id === initialSongId) ? initialSongId : (songs[0]?.id || null));
   const [versions, setVersions] = useState<ProjectFileVersionRecord[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [feedbackList, setFeedbackList] = useState<ProjectFeedbackRecord[]>([]);
