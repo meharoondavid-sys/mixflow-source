@@ -10,6 +10,7 @@ import {
   handleCreateSignedUploadUrl,
   handleConfirmFileUpload,
   handleGetSignedDownloadUrl,
+  handleGetClientShareUrl,
   handleDeleteProjectFile,
 } from './src/server/projectFilesHandler.js';
 import {
@@ -351,7 +352,29 @@ async function startServer() {
     }
   });
 
-  // 5. Delete File
+  // 5. Create a time-limited client share URL
+  app.post('/api/projects/:projectId/files/:fileId/share-url', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      const result = await handleGetClientShareUrl({
+        authHeader,
+        projectId: req.params.projectId,
+        fileId: req.params.fileId,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Client share URL error:', err);
+      return res.status(500).json({ error: 'Failed to create client share link.' });
+    }
+  });
+
+  // 6. Delete File
   app.delete('/api/projects/:projectId/files/:fileId', async (req, res) => {
     try {
       const authHeader = req.headers.authorization;
