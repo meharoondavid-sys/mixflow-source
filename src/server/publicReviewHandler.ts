@@ -23,7 +23,7 @@ function verify(ctx: PublicReviewContext) {
   const secret = ctx.supabaseServiceRoleKey;
   if (!secret || !ctx.token) return false;
   const expected = expectedToken(ctx.projectId, ctx.songId, secret);
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(ctx.token));
+  const actual = Buffer.from(ctx.token);\n  const expectedBuffer = Buffer.from(expected);\n  return actual.length === expectedBuffer.length && crypto.timingSafeEqual(expectedBuffer, actual);
 }
 
 async function getProject(ctx: PublicReviewContext) {
