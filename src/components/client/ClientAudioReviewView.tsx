@@ -53,7 +53,8 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const [commentText, setCommentText] = useState<string>('');
   const [showFeedbackForm, setShowFeedbackForm] = useState<boolean>(false);
   const [feedbackTimestamp, setFeedbackTimestamp] = useState<number>(0);
-  const [feedbackTimestampInput, setFeedbackTimestampInput] = useState<string>('0:00');
+  const [feedbackMinutes, setFeedbackMinutes] = useState<number>(0);
+  const [feedbackSeconds, setFeedbackSeconds] = useState<number>(0);
   const [submittingFeedback, setSubmittingFeedback] = useState<boolean>(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [projectStatus, setProjectStatus] = useState<string | null>(null);
@@ -253,28 +254,22 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     setCurrentTime(newTime);
   };
 
-  const formatTimestampInput = (secs: number) => formatTime(Math.max(0, secs));
-
-  const parseTimestampInput = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return 0;
-    if (trimmed.includes(':')) {
-      const parts = trimmed.split(':');
-      if (parts.length !== 2) return NaN;
-      const minutes = Number(parts[0]);
-      const seconds = Number(parts[1]);
-      if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || seconds < 0 || seconds >= 60) return NaN;
-      return minutes * 60 + seconds;
-    }
-    const seconds = Number(trimmed);
-    return Number.isFinite(seconds) && seconds >= 0 ? seconds : NaN;
+  const syncTimestampFields = (secs: number) => {
+    const safe = Math.max(0, Math.floor(secs));
+    setFeedbackTimestamp(safe);
+    setFeedbackMinutes(Math.floor(safe / 60));
+    setFeedbackSeconds(safe % 60);
   };
 
-  const handleCaptureCurrentTime = () => {
-    const timestamp = Math.round(currentTime * 10) / 10;
-    setFeedbackTimestamp(timestamp);
-    setFeedbackTimestampInput(formatTimestampInput(timestamp));
+  const updateTimestampFields = (minutes: number, seconds: number) => {
+    const safeMinutes = Math.max(0, Math.floor(Number(minutes) || 0));
+    const safeSeconds = Math.min(59, Math.max(0, Math.floor(Number(seconds) || 0)));
+    setFeedbackMinutes(safeMinutes);
+    setFeedbackSeconds(safeSeconds);
+    setFeedbackTimestamp((safeMinutes * 60) + safeSeconds);
   };
+
+  const handleCaptureCurrentTime = () => syncTimestampFields(currentTime);
 
   const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -720,7 +715,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
           <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div><h3 className="text-xl sm:text-[21px] font-bold text-white">Feedback & Comments</h3><p className="text-xs text-zinc-500 mt-1">Each note is pinned to a moment in the audio.</p></div>
-              <button type="button" onClick={() => { const timestamp = Math.round(currentTime * 10) / 10; setFeedbackTimestamp(timestamp); setFeedbackTimestampInput(formatTimestampInput(timestamp)); setShowFeedbackForm((open) => !open); }} className="inline-flex items-center justify-center gap-2 rounded-full bg-transparent px-2 py-2 text-sm font-semibold text-blue-400 hover:text-blue-300 transition cursor-pointer"><MessageSquarePlus size={14} /> {showFeedbackForm ? 'Cancel comment' : '+ Add comment'}</button>
+              <button type="button" onClick={() => { syncTimestampFields(currentTime); setShowFeedbackForm((open) => !open); }} className="inline-flex items-center justify-center gap-2 rounded-full bg-transparent px-2 py-2 text-sm font-semibold text-blue-400 hover:text-blue-300 transition cursor-pointer"><MessageSquarePlus size={14} /> {showFeedbackForm ? 'Cancel comment' : '+ Add comment'}</button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Feedback Input Form */}
@@ -742,24 +737,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
               <form onSubmit={handleSubmitFeedback} className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] text-zinc-400 font-medium">Timestamp (MM:SS):</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">Timestamp:</label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="0:00"
-                      value={feedbackTimestampInput}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9:]/g, '');
-                        setFeedbackTimestampInput(value);
-                        const parsed = parseTimestampInput(value);
-                        if (Number.isFinite(parsed)) setFeedbackTimestamp(parsed);
-                      }}
-                      onBlur={() => setFeedbackTimestampInput(formatTimestampInput(feedbackTimestamp))}
-                      className="w-24 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-blue-500"
-                      aria-label="Timestamp in minutes and seconds"
-                    />
-                    <span className="text-[10px] text-zinc-500">e.g. 1:23</span>
+                    <input type="number" min="0" step="1" value={feedbackMinutes} onChange={(e) => updateTimestampFields(Number(e.target.value), feedbackSeconds)} className="w-16 px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white text-center focus:outline-none focus:border-blue-500" aria-label="Minutes" />
+                    <span className="text-[10px] text-zinc-500">min</span>
+                    <input type="number" min="0" max="59" step="1" value={feedbackSeconds} onChange={(e) => updateTimestampFields(feedbackMinutes, Number(e.target.value))} className="w-16 px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white text-center focus:outline-none focus:border-blue-500" aria-label="Seconds" />
+                    <span className="text-[10px] text-zinc-500">sec</span>
                   </div>
                 </div>
 
@@ -771,9 +754,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                     onChange={(e) => {
                       setCommentText(e.target.value);
                       if (feedbackTimestamp === 0 && currentTime > 0) {
-                        const timestamp = Math.round(currentTime * 10) / 10;
-                        setFeedbackTimestamp(timestamp);
-                        setFeedbackTimestampInput(formatTimestampInput(timestamp));
+                        syncTimestampFields(currentTime);
                       }
                     }}
                     placeholder="e.g. Vocal feels slightly buried behind the lead guitar here..."
