@@ -2686,7 +2686,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Project Price ($)</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Project Price</label>
                   <input
                     type="number"
                     min="0"
@@ -4065,7 +4065,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Project Price ($)</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Project Price</label>
                   <input
                     type="number"
                     min="0"
@@ -5446,7 +5446,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Project Price ($)</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Project Price</label>
                   <input
                     type="number"
                     min="0"
