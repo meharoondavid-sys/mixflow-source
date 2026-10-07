@@ -277,22 +277,6 @@ const AppContent: React.FC = () => {
           <span>👤 Client Portal</span>
         </button>
 
-        <button
-          onClick={() => {
-            const token = projects[0]?.shareToken || 'rev-neon-77a8';
-            setActiveClientToken(token);
-            window.location.hash = `#/review/${token}`;
-            setCurrentView('client');
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
-            currentView === 'client' && window.location.hash.startsWith('#/review/')
-              ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <span>📱 Client Review Link</span>
-        </button>
-
         <span className="w-[1px] h-3.5 bg-zinc-800 hidden sm:inline" />
 
         <button
