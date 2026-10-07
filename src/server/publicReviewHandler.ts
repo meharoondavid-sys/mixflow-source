@@ -83,6 +83,62 @@ export async function handleCreatePublicReviewLink(ctx: PublicReviewContext & { 
   return { status: 200, body: { token: expectedToken(ctx.projectId, ctx.songId, ctx.publicReviewSecret) } };
 }
 
+export async function handleClaimClientAccount(ctx: PublicReviewContext & { authHeader?: string }) {
+  if (!verify(ctx)) return { status: 401, body: { error: 'Invalid or expired review link.' } };
+
+  const bearer = ctx.authHeader?.replace(/^Bearer\\s+/, '').trim();
+  if (!bearer) return { status: 401, body: { error: 'Authentication required.' } };
+
+  const authClient = createClient(ctx.supabaseUrl, ctx.supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  });
+  const { data: userData, error: userError } = await authClient.auth.getUser(bearer);
+  if (userError || !userData.user) {
+    return { status: 401, body: { error: 'Invalid authentication session.' } };
+  }
+
+  const found = await getProject(ctx);
+  if (!found) return { status: 404, body: { error: 'Project not found.' } };
+
+  const { db, project } = found;
+
+  const { data: existing } = await db
+    .from('clients')
+    .select('id, user_id, full_name, email, phone, company_name')
+    .eq('id', project.client_id)
+    .maybeSingle();
+
+  if (!existing) return { status: 404, body: { error: 'Client record not found.' } };
+
+  if (existing.user_id && existing.user_id !== userData.user.id) {
+    return { status: 409, body: { error: 'This client profile is already linked to another MixFlow account.' } };
+  }
+
+  const { data: linkedClient, error: linkError } = await db
+    .from('clients')
+    .update({
+      user_id: userData.user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', existing.id)
+    .select('id, full_name, email, phone, company_name')
+    .single();
+
+  if (linkError || !linkedClient) {
+    return { status: 500, body: { error: 'Unable to save your MixFlow client profile.' } };
+  }
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      client: linkedClient,
+      projectId: project.id,
+    },
+  };
+}
+
 export async function handlePublicReview(ctx: PublicReviewContext) {
   if (!verify(ctx)) return { status: 401, body: { error: 'Invalid or expired review link.' } };
   const found = await getProject(ctx);
