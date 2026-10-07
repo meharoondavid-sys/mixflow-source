@@ -208,7 +208,7 @@ const AppContent: React.FC = () => {
         isPreviewMode ? (
           <ClientAudioReviewView projectId="preview-demo-project" songs={[{ id: 'preview-demo-song', title: 'Demo Song — Client Review Preview', track_number: 1 }]} />
         ) : window.location.hash.startsWith('#/review/') ? (
-          <ClientReviewView />
+          <ClientPortal />
         ) : !user || isPasswordRecovery ? (
           <AuthScreen />
         ) : (
