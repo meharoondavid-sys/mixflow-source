@@ -24,6 +24,7 @@ export interface ProjectRecord {
   description: string | null;
   project_price: number;
   deposit_amount: number;
+  currency: string;
   deadline: string | null;
   status: ProjectStatus;
   created_at: string;
@@ -40,6 +41,7 @@ export interface ProjectSongRecord {
   title: string;
   track_number: number;
   status: string;
+  bpm: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,6 +59,7 @@ export interface ProjectInsertInput {
   description?: string | null;
   project_price?: number;
   deposit_amount?: number;
+  currency?: string;
   deadline?: string | null;
   status?: ProjectStatus;
   songs?: SongInput[];
