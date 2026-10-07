@@ -41,10 +41,9 @@ export async function handleCreatePublicReviewLink(ctx: PublicReviewContext & { 
   const token = ctx.authHeader?.replace(/^Bearer\\s+/, '').trim();
   if (!token) return { status: 401, body: { error: 'Authentication required.' } };
 
-  // Link generation only needs the signed-in engineer's normal Supabase access.
-  // This avoids requiring the privileged service-role key for this operation.
-  const db = createClient(ctx.supabaseUrl, ctx.supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+  // Validate the engineer session server-side. The service-role client can
+  // verify the user's access token without relying on the browser's anon-key session state.
+  const db = createClient(ctx.supabaseUrl, ctx.supabaseServiceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
