@@ -88,6 +88,7 @@ async function startServer() {
     supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
   });
 
   app.post('/api/projects/:projectId/collaborators/invites', async (req, res) => {
@@ -163,6 +164,7 @@ async function startServer() {
         supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
         supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
         supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
       });
       return res.status(result.status).json(result.body);
     } catch (err) {
@@ -487,6 +489,7 @@ async function startServer() {
         supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
         supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
         supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
       });
       return res.status(result.status).json(result.body);
     } catch (err) {
@@ -505,6 +508,7 @@ async function startServer() {
         supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
         supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
         supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
       });
       return res.status(result.status).json(result.body);
     } catch (err) {
@@ -939,6 +943,7 @@ async function startServer() {
     supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
   });
 
   app.post('/api/public-review/:projectId/:songId/link', async (req, res) => {
