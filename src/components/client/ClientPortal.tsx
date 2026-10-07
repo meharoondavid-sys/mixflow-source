@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ClientPortalNavbar } from './ClientPortalNavbar';
 import { ClientPortalProjectsView } from './ClientPortalProjectsView';
 import { ClientPortalProjectDetailView } from './ClientPortalProjectDetailView';
+import { ClientAudioReviewView } from './ClientAudioReviewView';
 import { useClientPortal } from '../../hooks/useClientPortal';
 import { useAuth } from '../../context/AuthContext';
 import { AlertCircle, UserCheck } from 'lucide-react';
@@ -27,17 +28,20 @@ export const ClientPortal: React.FC = () => {
   } = useClientPortal();
 
   const [activeProjectIdFromHash, setActiveProjectIdFromHash] = useState<string | null>(null);
+  const [reviewSongIdFromHash, setReviewSongIdFromHash] = useState<string | null>(null);
 
   // Sync route with window hash
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
-      const match = hash.match(/^#\/?client\/project\/([a-zA-Z0-9_-]+)/);
+      const match = hash.match(/^#\/?client\/project\/([a-zA-Z0-9_-]+)(?:\/review\/([a-zA-Z0-9_-]+))?/);
       if (match && match[1]) {
         setActiveProjectIdFromHash(match[1]);
+        setReviewSongIdFromHash(match[2] || null);
         fetchProjectDetail(match[1]);
       } else {
         setActiveProjectIdFromHash(null);
+        setReviewSongIdFromHash(null);
         setActiveProject(null);
       }
     };
@@ -93,6 +97,12 @@ export const ClientPortal: React.FC = () => {
               </button>
             </div>
           </div>
+        ) : activeProjectIdFromHash && reviewSongIdFromHash && activeProject ? (
+          /* Song Review View */
+          <ClientAudioReviewView
+            projectId={activeProject.id}
+            songs={activeProject.songs}
+          />
         ) : activeProjectIdFromHash ? (
           /* Project Detail View */
           <ClientPortalProjectDetailView
