@@ -1,12 +1,11 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import { Download, Disc3 } from 'lucide-react';
+import { Disc3 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectsProvider } from './context/ProjectsContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal';
-import { downloadProjectSourceZip } from './utils/exportSourceZip';
 import { MobileProjectFileUploadView } from './components/engineer/MobileProjectFileUploadView';
 import { ClientAudioReviewView } from './components/client/ClientAudioReviewView';
 
@@ -246,49 +245,7 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {/* Developer preview controls stay out of the normal client/studio experience. */}
-      {isPreviewMode && <aside aria-label="Preview switcher" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-900/95 backdrop-blur-md border border-zinc-800 rounded-full px-2 py-1.5 shadow-2xl flex items-center gap-1.5 text-xs">
-        <span className="text-[11px] text-zinc-500 font-mono px-2 hidden sm:inline">Preview Mode:</span>
-        <button
-          onClick={() => {
-            window.location.hash = '';
-            setCurrentView('engineer');
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
-            currentView === 'engineer'
-              ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <span>🎧 Engineer Console</span>
-        </button>
 
-        <button
-          onClick={() => {
-            window.location.hash = '#/client/projects';
-            setCurrentView('client');
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
-            currentView === 'client' && !window.location.hash.startsWith('#/review/')
-              ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <span>👤 Client Portal</span>
-        </button>
-
-        <span className="w-[1px] h-3.5 bg-zinc-800 hidden sm:inline" />
-
-        <button
-          onClick={downloadProjectSourceZip}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-          title="Download complete project source files as a .zip"
-        >
-          <Download size={13} className="text-emerald-400" />
-          <span className="hidden sm:inline">Download Code (.ZIP)</span>
-          <span className="sm:hidden">ZIP</span>
-        </button>
-      </aside>}
 
       {/* Global Modals */}
       <NewProjectModal />
