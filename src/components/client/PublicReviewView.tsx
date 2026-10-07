@@ -124,47 +124,38 @@ export const PublicReviewView: React.FC = () => {
         ) : (
           <>
             {!showAccountOffer && (
-              <section className="max-w-2xl mx-auto mb-6 bg-zinc-900/90 border border-zinc-800 rounded-2xl px-5 py-4 shadow-lg">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-white">Want to keep all your projects in one place?</p>
-                    <p className="text-xs text-zinc-500 mt-0.5">Create a free MixFlow account to save this project and find future projects here too.</p>
-                  </div>
-                  {!showAccountSignup && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAccountSignup(true)}
-                      className="shrink-0 px-4 py-2.5 bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs rounded-xl transition"
-                    >
-                      Create account
-                    </button>
-                  )}
-                </div>
-                {showAccountSignup && (
-                  accountSent ? (
-                    <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                      <p className="text-sm font-semibold text-emerald-300">Check your email.</p>
-                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed">We sent you a secure MixFlow sign-in link. Open it and we'll save this project to your library automatically.</p>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleSaveProject} className="mt-4 space-y-3">
-                      <label className="block text-xs font-semibold text-zinc-300">Email address</label>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <div className="relative flex-1">
-                          <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                          <input type="email" required value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="you@example.com" className="w-full pl-9 pr-3 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500" />
+              <div className="max-w-7xl mx-auto mb-5 flex justify-end">
+                {!showAccountSignup ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAccountSignup(true)}
+                    className="text-xs text-zinc-400 hover:text-white transition inline-flex items-center gap-1.5"
+                  >
+                    Want to keep your projects in one place? <span className="text-emerald-400 font-semibold">Create account</span>
+                    <ArrowRight size={13} />
+                  </button>
+                ) : (
+                  <form onSubmit={handleSaveProject} className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3">
+                    {accountSent ? (
+                      <p className="text-xs text-emerald-300">Check your email — your secure MixFlow sign-in link is on its way.</p>
+                    ) : (
+                      <>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                            <input type="email" required value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="Your email" className="w-full pl-8 pr-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500" />
+                          </div>
+                          <button type="submit" disabled={accountLoading} className="px-3.5 py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-bold text-xs rounded-lg transition">
+                            {accountLoading ? 'Sending…' : 'Create account'}
+                          </button>
                         </div>
-                        <button type="submit" disabled={accountLoading} className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition">
-                          <span>{accountLoading ? 'Sending…' : 'Create account'}</span>
-                          {!accountLoading && <ArrowRight size={15} />}
-                        </button>
-                      </div>
-                      {accountError && <p className="text-xs text-red-400">{accountError}</p>}
-                      <p className="text-[11px] text-zinc-500">No password to remember. We'll send a secure sign-in link to your email.</p>
-                    </form>
-                  )
+                        {accountError && <p className="text-[11px] text-red-400 mt-2">{accountError}</p>}
+                        <p className="text-[10px] text-zinc-600 mt-2">Free account · no password required</p>
+                      </>
+                    )}
+                  </form>
                 )}
-              </section>
+              </div>
             )}
 
             <ClientAudioReviewView
