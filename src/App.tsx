@@ -87,7 +87,13 @@ const AppContent: React.FC = () => {
           setActiveClientToken(token);
           setCurrentView('client');
         }
-      } else if (hash.startsWith('#/client') || hash.startsWith('#client')) {
+      } else if (hash === '#clients' || hash === '#/clients') {
+        // The engineer Clients page must be handled before the generic
+        // #/client... route below because "#/clients" starts with "#/client".
+        setCurrentView('engineer');
+        setActiveProjectId(null);
+        setEngineerTab('clients');
+      } else if (hash.startsWith('#/client/') || hash.startsWith('#client/')) {
         // Studio staff should always stay in the Engineer Console when using
         // normal client routes. Client review links remain explicitly supported
         // through #/review/... above.
@@ -105,10 +111,6 @@ const AppContent: React.FC = () => {
           setEngineerTab('projects');
           setActiveProjectId(pId);
         }
-      } else if (hash === '#clients' || hash === '#/clients') {
-        setCurrentView('engineer');
-        setActiveProjectId(null);
-        setEngineerTab('clients');
       } else if (hash === '#invoices' || hash === '#/invoices') {
         setCurrentView('engineer');
         setActiveProjectId(null);
