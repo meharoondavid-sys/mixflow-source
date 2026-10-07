@@ -676,7 +676,48 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 {audioError}
               </p>
             )}
-          </div>          {/* Feedback Section */}
+          </div>
+
+          {/* Changes made across versions */}
+          <div className="bg-zinc-950/50 border border-zinc-800/80 rounded-2xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <FileAudio size={15} className="text-emerald-400" />
+                Changes made in each version
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1">A quick summary of what changed from one mix pass to the next.</p>
+            </div>
+            <div className="space-y-2">
+              {[...versions].reverse().map((version) => {
+                const isCurrent = version.id === selectedVersionId;
+                const versionNotes = version.notes?.trim();
+                return (
+                  <button
+                    key={version.id}
+                    type="button"
+                    onClick={() => setSelectedVersionId(version.id)}
+                    className={`w-full text-left rounded-xl border p-3.5 transition cursor-pointer ${isCurrent ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-white">V{version.version_number}</span>
+                          <span className="text-xs text-zinc-300 truncate">{version.name || `Mix V${version.version_number}`}</span>
+                          {version.id === latestVersion?.id && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Latest</span>}
+                        </div>
+                        <p className={`text-xs leading-relaxed mt-1.5 ${versionNotes ? 'text-zinc-400' : 'text-zinc-600 italic'}`}>
+                          {versionNotes || 'No change notes were added for this version.'}
+                        </p>
+                      </div>
+                      {isCurrent && <span className="text-[9px] uppercase font-bold text-emerald-400 shrink-0">Selected</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Feedback Section */}
           <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div><h3 className="text-sm font-bold text-white">Feedback and requested changes</h3><p className="text-xs text-zinc-500 mt-1">Each note is pinned to a moment in the audio.</p></div>
