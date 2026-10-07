@@ -241,10 +241,13 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
   const playVersionDirect = async (versionId: string) => {
     try {
-      const token = await getAuthToken();
-      if (!token) throw new Error('Authentication required.');
-      const res = await fetch(`/api/projects/${projectId}/versions/${versionId}/playback-url`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const token = publicReviewToken ? null : await getAuthToken();
+      if (!publicReviewToken && !token) throw new Error('Authentication required.');
+      const endpoint = publicReviewToken
+        ? `/api/public-review/${projectId}/${selectedSongId}/versions/${versionId}/playback-url?token=${encodeURIComponent(publicReviewToken)}`
+        : `/api/projects/${projectId}/versions/${versionId}/playback-url`;
+      const res = await fetch(endpoint, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!res.ok) throw new Error('Failed to load comparison audio.');
       const data = await res.json();
