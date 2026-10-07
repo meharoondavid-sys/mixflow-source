@@ -12,6 +12,7 @@ import {
   Trash2, 
   Plus, 
   FileText, 
+  Upload,
   User, 
   Building, 
   Mail, 
@@ -35,6 +36,7 @@ import { ProjectFeedbackTab } from './ProjectFeedbackTab';
 import { ProjectPaymentsSection } from './ProjectPaymentsSection';
 import { ProjectDeliveriesSection } from './ProjectDeliveriesSection';
 import { useProjectPayments } from '../../hooks/useProjectPayments';
+import { useApp } from '../../context/AppContext';
 import { 
   ProjectRecord, 
   ProjectType,
@@ -70,6 +72,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   } = useProjects();
 
   const { clients } = useClients();
+  const { setActiveProjectId, setActiveUploadSongId, setIsUploadMixOpen } = useApp();
 
   const project = projects.find((p) => p.id === projectId);
 
@@ -558,20 +561,37 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          window.dispatchEvent(new CustomEvent('mixflow:project-file-filter', { detail: { songId: song.id } }));
-                          document.getElementById('project-files-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
-                        title={`View files for ${song.title}`}
-                      >
-                        <FileText size={12} />
-                        <span>Files</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('mixflow:project-file-filter', { detail: { songId: song.id } }));
+                            document.getElementById('project-files-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                          title={`View files for ${song.title}`}
+                        >
+                          <FileText size={12} />
+                          <span>Files</span>
+                        </button>
 
-                    {canManageProjects && (
+                        {canManageProjects && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveProjectId(project.id);
+                              setActiveUploadSongId(song.id);
+                              setIsUploadMixOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-sm"
+                            title={`Upload ${song.title} for client review`}
+                          >
+                            <Upload size={12} />
+                            <span>Upload for Review</span>
+                          </button>
+                        )}
+                      </div>
+                    ) && (
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
