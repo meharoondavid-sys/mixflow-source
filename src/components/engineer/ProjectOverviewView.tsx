@@ -25,7 +25,8 @@ import {
   Sparkles,
   Tag,
   Users,
-  Check
+  Check,
+  Link2
 } from 'lucide-react';
 import { useProjects } from '../../hooks/useProjects';
 import { useServices } from '../../hooks/useServices';
@@ -576,19 +577,38 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                         </button>
 
                         {canManageProjects && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveProjectId(project.id);
-                              setActiveUploadSongId(song.id);
-                              setIsUploadMixOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-sm"
-                            title={`Upload ${song.title} for client review`}
-                          >
-                            <Upload size={12} />
-                            <span>Upload for Review</span>
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveProjectId(project.id);
+                                setActiveUploadSongId(song.id);
+                                setIsUploadMixOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-sm"
+                              title={`Upload ${song.title} for client review`}
+                            >
+                              <Upload size={12} />
+                              <span>Upload for Review</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const url = `${window.location.origin}${window.location.pathname}#/client/project/${project.id}/review/${song.id}`;
+                                try {
+                                  await navigator.clipboard.writeText(url);
+                                  alert('Review link copied. Send this link to the client.');
+                                } catch {
+                                  window.prompt('Copy this review link:', url);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                              title={`Copy review link for ${song.title}`}
+                            >
+                              <Link2 size={12} />
+                              <span>Copy Review Link</span>
+                            </button>
+                          </>
                         )}
                       </div>
 
