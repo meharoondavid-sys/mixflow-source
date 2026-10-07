@@ -66,6 +66,7 @@ import {
   handlePublicReview,
   handlePublicReviewPlayback,
   handlePublicReviewFeedback,
+  handlePublicReviewDeleteFeedback,
   handlePublicReviewAction,
 } from './src/server/publicReviewHandler.js';
 
@@ -964,6 +965,11 @@ async function startServer() {
   app.post('/api/public-review/:projectId/:songId/feedback', async (req, res) => {
     try { const result = await handlePublicReviewFeedback(publicReviewContext(req)); return res.status(result.status).json(result.body); }
     catch (err) { console.error('[MixFlow Server] Public review feedback error:', err); return res.status(500).json({ error: 'Failed to save feedback.' }); }
+  });
+
+  app.delete('/api/public-review/:projectId/:songId/feedback/:versionId', async (req, res) => {
+    try { const result = await handlePublicReviewDeleteFeedback(publicReviewContext(req)); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Public review feedback deletion error:', err); return res.status(500).json({ error: 'Failed to remove feedback.' }); }
   });
 
   app.post('/api/public-review/:projectId/:songId/action', async (req, res) => {
