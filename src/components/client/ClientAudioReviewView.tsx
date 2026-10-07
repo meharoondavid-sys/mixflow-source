@@ -53,6 +53,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const [commentText, setCommentText] = useState<string>('');
   const [showFeedbackForm, setShowFeedbackForm] = useState<boolean>(false);
   const [feedbackTimestamp, setFeedbackTimestamp] = useState<number>(0);
+  const [feedbackTimestampInput, setFeedbackTimestampInput] = useState<string>('0:00');
   const [submittingFeedback, setSubmittingFeedback] = useState<boolean>(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [projectStatus, setProjectStatus] = useState<string | null>(null);
@@ -252,8 +253,27 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     setCurrentTime(newTime);
   };
 
+  const formatTimestampInput = (secs: number) => formatTime(Math.max(0, secs));
+
+  const parseTimestampInput = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    if (trimmed.includes(':')) {
+      const parts = trimmed.split(':');
+      if (parts.length !== 2) return NaN;
+      const minutes = Number(parts[0]);
+      const seconds = Number(parts[1]);
+      if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || seconds < 0 || seconds >= 60) return NaN;
+      return minutes * 60 + seconds;
+    }
+    const seconds = Number(trimmed);
+    return Number.isFinite(seconds) && seconds >= 0 ? seconds : NaN;
+  };
+
   const handleCaptureCurrentTime = () => {
-    setFeedbackTimestamp(Math.round(currentTime * 100) / 100);
+    const timestamp = Math.round(currentTime * 10) / 10;
+    setFeedbackTimestamp(timestamp);
+    setFeedbackTimestampInput(formatTimestampInput(timestamp));
   };
 
   const handleSubmitFeedback = async (e: React.FormEvent) => {
@@ -700,7 +720,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
           <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div><h3 className="text-xl sm:text-[21px] font-bold text-white">Feedback & Comments</h3><p className="text-xs text-zinc-500 mt-1">Each note is pinned to a moment in the audio.</p></div>
-              <button type="button" onClick={() => { setFeedbackTimestamp(Math.round(currentTime * 10) / 10); setShowFeedbackForm((open) => !open); }} className="inline-flex items-center justify-center gap-2 rounded-full bg-transparent px-2 py-2 text-sm font-semibold text-blue-400 hover:text-blue-300 transition cursor-pointer"><MessageSquarePlus size={14} /> {showFeedbackForm ? 'Cancel comment' : '+ Add comment'}</button>
+              <button type="button" onClick={() => { const timestamp = Math.round(currentTime * 10) / 10; setFeedbackTimestamp(timestamp); setFeedbackTimestampInput(formatTimestampInput(timestamp)); setShowFeedbackForm((open) => !open); }} className="inline-flex items-center justify-center gap-2 rounded-full bg-transparent px-2 py-2 text-sm font-semibold text-blue-400 hover:text-blue-300 transition cursor-pointer"><MessageSquarePlus size={14} /> {showFeedbackForm ? 'Cancel comment' : '+ Add comment'}</button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Feedback Input Form */}
@@ -722,19 +742,24 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
               <form onSubmit={handleSubmitFeedback} className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] text-zinc-400 font-medium">Timestamp (seconds):</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">Timestamp (MM:SS):</label>
                   <div className="flex items-center gap-2">
                     <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={feedbackTimestamp}
-                      onChange={(e) => setFeedbackTimestamp(Math.max(0, Number(e.target.value)))}
-                      className="w-28 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-blue-500"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0:00"
+                      value={feedbackTimestampInput}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9:]/g, '');
+                        setFeedbackTimestampInput(value);
+                        const parsed = parseTimestampInput(value);
+                        if (Number.isFinite(parsed)) setFeedbackTimestamp(parsed);
+                      }}
+                      onBlur={() => setFeedbackTimestampInput(formatTimestampInput(feedbackTimestamp))}
+                      className="w-24 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-blue-500"
+                      aria-label="Timestamp in minutes and seconds"
                     />
-                    <span className="text-xs font-mono text-zinc-400">
-                      = {formatTime(feedbackTimestamp)}
-                    </span>
+                    <span className="text-[10px] text-zinc-500">e.g. 1:23</span>
                   </div>
                 </div>
 
@@ -746,7 +771,9 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                     onChange={(e) => {
                       setCommentText(e.target.value);
                       if (feedbackTimestamp === 0 && currentTime > 0) {
-                        setFeedbackTimestamp(Math.round(currentTime * 100) / 100);
+                        const timestamp = Math.round(currentTime * 10) / 10;
+                        setFeedbackTimestamp(timestamp);
+                        setFeedbackTimestampInput(formatTimestampInput(timestamp));
                       }
                     }}
                     placeholder="e.g. Vocal feels slightly buried behind the lead guitar here..."
