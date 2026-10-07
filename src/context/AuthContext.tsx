@@ -81,6 +81,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setProfile(profileData || null);
 
+        // Client accounts are intentionally not provisioned as studio organizations.
+        // They access projects through the client portal and can be linked to projects
+        // after a secure project review flow.
+        const { data: currentUserData } = await supabase.auth.getUser();
+        if (currentUserData.user?.user_metadata?.account_type === 'client') {
+          setOrganization(null);
+          setRole(null);
+          setProvisioning(false);
+          return;
+        }
+
         let activeOrg: Organization | null = null;
         let activeRole: OrganizationRole | null = null;
 
