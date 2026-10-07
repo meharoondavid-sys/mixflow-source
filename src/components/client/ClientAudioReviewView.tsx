@@ -381,11 +381,11 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const resolvedCount = feedbackList.filter((f) => f.status === 'resolved').length;
 
   return (
-    <div className="bg-[#080b10] border border-[#1c2430] rounded-[28px] p-4 sm:p-6 space-y-5">
+    <div className="bg-[#080b10] border border-[#1c2430] rounded-[28px] p-3 sm:p-6 space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/60 pb-5">
         <div>
-          <h2 className="text-[22px] sm:text-2xl font-bold text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
             {songs.find((song) => song.id === selectedSongId)?.title || 'Mix Review'}
           </h2>
           <p className="text-xs sm:text-sm text-zinc-500 mt-1">
@@ -394,7 +394,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
         </div>
 
         {/* Review status and sign-off actions */}
-        <div className="bg-[#10141b] border border-[#202938] rounded-2xl p-4 space-y-3">
+        <div className="bg-[#10141b] border border-[#202938] rounded-2xl p-3 sm:p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Project status</p>
@@ -402,7 +402,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             </div>
             {canTakeReviewAction && (
               <div className="flex flex-col sm:flex-row gap-2">
-                <button type="button" onClick={() => handleReviewAction('revision_requested')} disabled={reviewActionLoading} className="px-4 py-2 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 disabled:opacity-50 text-orange-300 text-xs font-bold transition cursor-pointer">
+                <button type="button" onClick={() => handleReviewAction('revision_requested')} disabled={reviewActionLoading} className="px-3 sm:px-4 py-2 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 disabled:opacity-50 text-orange-300 text-xs font-bold transition cursor-pointer">
                   {reviewActionLoading && reviewAction === 'revision_requested' ? 'Sending...' : 'Request Revision'}
                 </button>
                 <button type="button" onClick={() => handleReviewAction('mix_approved')} disabled={reviewActionLoading || openCount > 0} title={openCount > 0 ? 'Resolve all open feedback before approving' : 'Approve this mix as final'} className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-black text-xs font-bold transition cursor-pointer">
@@ -479,7 +479,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
           {/* Version History Table / Drawer */}
           {showHistory && (
-            <div className="bg-zinc-950/80 border border-zinc-800 rounded-[22px] p-4 sm:p-5 space-y-4 shadow-inner">
+            <div className="bg-zinc-950/80 border border-zinc-800 rounded-[22px] p-4 sm:p-4 sm:p-5 space-y-4 shadow-inner">
               <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
                 <h3 className="text-xs font-bold text-white flex items-center gap-2">
                   <History size={15} className="text-blue-400" />
@@ -672,7 +672,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               <div role="slider" aria-label="Audio timeline" aria-valuemin={0} aria-valuemax={duration || 0} aria-valuenow={currentTime} aria-valuetext={formatTime(currentTime) + ' of ' + formatTime(duration)} tabIndex={0}
                 onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (duration > 0 && rect.width > 0) handleSeek(Math.max(0, Math.min(duration, ((e.clientX - rect.left) / rect.width) * duration))); }}
                 onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); handleSeek(Math.min(duration, currentTime + 5)); } if (e.key === 'ArrowLeft') { e.preventDefault(); handleSeek(Math.max(0, currentTime - 5)); } if (e.key === 'Home') { e.preventDefault(); handleSeek(0); } if (e.key === 'End') { e.preventDefault(); handleSeek(duration); } }}
-                className="relative flex h-24 sm:h-28 items-center gap-px overflow-hidden rounded-xl border border-zinc-800 bg-[#111720] px-2 sm:px-3 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                className="relative flex h-20 sm:h-28 items-center gap-px overflow-hidden rounded-xl border border-zinc-800 bg-[#111720] px-2 sm:px-3 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                 {Array.from({ length: 64 }, (_, index) => { const height = 16 + Math.abs(Math.sin(index * 12.9898) * Math.cos(index * 0.37)) * 76; const played = duration > 0 && index <= (currentTime / duration) * 63; return <div key={index} className={`flex-1 rounded-full ${played ? 'bg-[#4f7cff]' : 'bg-[#343b49]'}`} style={{ height: `${height}%`, minWidth: '1px' }} />; })}
                 {duration > 0 && feedbackList.map((item) => <button key={item.id} type="button" title={`Feedback at ${formatTime(Number(item.timestamp_seconds))}`} onClick={(e) => { e.stopPropagation(); handleSeek(Number(item.timestamp_seconds)); }} className={`absolute bottom-1 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-zinc-950 ${item.status === 'resolved' ? 'bg-[#8b93a3]' : 'bg-[#4f7cff]'}`} style={{ left: `${(Number(item.timestamp_seconds) / duration) * 100}%` }} />)}
                 <div className="absolute inset-y-0 w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)] pointer-events-none" style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />
@@ -808,7 +808,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             </div>}
 
             {/* Version Feedback List */}
-            <div className={`${showFeedbackForm ? 'lg:col-span-7' : 'lg:col-span-12'} bg-[#0d1118] border border-[#1c2430] rounded-2xl p-5 space-y-3`}>
+            <div className={`${showFeedbackForm ? 'lg:col-span-7' : 'lg:col-span-12'} bg-[#0d1118] border border-[#1c2430] rounded-2xl p-4 sm:p-5 space-y-3`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-800/60">
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Clock size={14} className="text-zinc-400" />
