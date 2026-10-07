@@ -148,6 +148,7 @@ export function useProjects() {
         ...p,
         project_price: Number(p.project_price) || 0,
         deposit_amount: Number(p.deposit_amount) || 0,
+        currency: p.currency || 'INR',
         client: clientsMap[p.client_id] || null,
         songs: songsMap[p.id] || [],
         service_count: servicesCountMap[p.id] || 0,
@@ -247,6 +248,7 @@ export function useProjects() {
         description: input.description?.trim() || null,
         project_price: priceNum,
         deposit_amount: depositNum,
+        currency: input.currency || 'INR',
         deadline: input.deadline || null,
         status: input.status || 'inquiry',
       };
@@ -279,6 +281,7 @@ export function useProjects() {
           project_id: newProjectId,
           title: songTitle,
           track_number: 1,
+          bpm: input.songs?.[0]?.bpm ?? null,
           status: 'in_production',
         });
       } else {
