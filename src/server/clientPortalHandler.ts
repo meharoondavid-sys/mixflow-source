@@ -607,9 +607,6 @@ export async function handleClaimClientProject(
   }
 
   const callerUser = authRes.callerUser!;
-  if (callerUser.user_metadata?.account_type !== 'client') {
-    return { status: 403, body: { error: 'Only client accounts can add projects by code.' } };
-  }
 
   const projectCode = String(ctx.body?.projectCode || '').trim().toUpperCase();
   if (!/^MF-[A-Z0-9]{12}$/.test(projectCode)) {
