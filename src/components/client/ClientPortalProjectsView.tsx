@@ -7,7 +7,6 @@ import {
   Calendar, 
   Clock, 
   ChevronRight,
-  Disc3,
   AlertCircle
 } from 'lucide-react';
 import { ClientPortalProjectSummary } from '../../types/clientPortal';
@@ -119,10 +118,17 @@ export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> =
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Your Projects</h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Access track listings and authorized audio delivery files for your studio projects.
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <Music size={18} />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">My Music</h1>
+              <p className="text-xs text-zinc-400 mt-1">
+                Your projects, mixes, masters, and delivered files — all in one place.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Search */}
@@ -133,7 +139,7 @@ export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> =
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search your projects..."
+              placeholder="Search your music..."
               className="w-full pl-9 pr-3 py-2 bg-zinc-900/80 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50 transition"
             />
           </div>
@@ -147,12 +153,12 @@ export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> =
             <FolderKanban size={24} />
           </div>
           <h3 className="text-sm font-semibold text-white">
-            {searchQuery ? 'No matching projects' : 'No projects available'}
+            {searchQuery ? 'No matching projects' : 'Your music library is empty'}
           </h3>
           <p className="text-xs text-zinc-500 max-w-sm mx-auto">
             {searchQuery
               ? 'No projects match your search query. Try typing a different name.'
-              : 'You do not have any active projects yet. When your audio engineer creates a project for you, it will appear here.'}
+              : 'When an engineer starts a project for you, it will appear here automatically.'}
           </p>
         </div>
       ) : (
@@ -197,7 +203,7 @@ export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> =
                 </div>
 
                 <div className="flex items-center gap-1 text-emerald-400 group-hover:translate-x-0.5 transition-transform text-xs font-semibold">
-                  <span>View</span>
+                  <span>Open</span>
                   <ChevronRight size={14} />
                 </div>
               </div>
