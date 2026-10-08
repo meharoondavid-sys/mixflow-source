@@ -10,6 +10,7 @@ import { MobileProjectFileUploadView } from './components/engineer/MobileProject
 import { ClientAudioReviewView } from './components/client/ClientAudioReviewView';
 import { PublicReviewView } from './components/client/PublicReviewView';
 import { ClientPortalPreview } from './components/client/ClientPortalPreview';
+import { ClientAuthScreen } from './components/client/ClientAuthScreen';
 import { getSupabase } from './lib/supabase';
 
 // Modals
@@ -46,6 +47,7 @@ const AppContent: React.FC = () => {
     projects
   } = useApp();
 
+  const isClientAccountEntry = new URLSearchParams(window.location.search).get('client') === '1';
   const isPasswordRecovery = window.location.hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('reset') === '1';
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
   const isClientAuthCallback = new URLSearchParams(window.location.search).get('client_auth') === '1';
@@ -221,6 +223,12 @@ const AppContent: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Dedicated client account entry. Client accounts use email + password and
+  // never enter studio organization provisioning.
+  if (isClientAccountEntry && !user && !isPasswordRecovery) {
+    return <ClientAuthScreen />;
   }
 
   // While a client Magic Link is being processed, never let the normal studio routing win.\n  // This is especially important when the email belongs to an existing engineer account.\n  if (user && isClientAuthCallback && hasPendingClientClaim && !clientLibraryAccess) {\n    return (\n      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-zinc-100 font-sans">\n        <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900/80 p-7 text-center shadow-2xl">\n          <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">\n            <Disc3 size={24} className={clientClaimError ? '' : 'animate-spin'} />\n          </div>\n          <h1 className="text-base font-semibold text-white">{clientClaimError ? 'We couldn’t save your project' : 'Saving your project'}</h1>\n          <p className="mt-2 text-xs text-zinc-400 leading-relaxed">{clientClaimError || 'Your secure sign-in is complete. We’re linking this project to your MixFlow Library.'}</p>\n          {clientClaimError && (\n            <button onClick={() => window.location.reload()} className="mt-5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition">Try again</button>\n          )}\n        </div>\n      </div>\n    );\n  }\n\n  // Provisioning state: User authenticated but studio organization is currently being created
