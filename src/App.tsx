@@ -47,6 +47,7 @@ const AppContent: React.FC = () => {
 
   const isPasswordRecovery = window.location.hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('reset') === '1';
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
+  const isClientAuthCallback = new URLSearchParams(window.location.search).get('client_auth') === '1';
   const clientClaimInFlight = useRef(false);
   const [clientLibraryAccess, setClientLibraryAccess] = useState(false);
   const [hasPendingClientClaim, setHasPendingClientClaim] = useState(() => {
@@ -94,7 +95,7 @@ const AppContent: React.FC = () => {
         window.localStorage.removeItem('mixflow_client_claim');
         setHasPendingClientClaim(false);
         setClientLibraryAccess(true);
-        window.location.hash = '#/client/projects';
+        window.location.hash = '#/client/';
       } catch (err) {
         console.error('[MixFlow] Client account claim failed:', err);
         // Keep the claim context so a transient auth/network error can be retried.
@@ -118,7 +119,7 @@ const AppContent: React.FC = () => {
   // are routed to the Engineer/Studio Console after authentication if the browser remained on #/client.
   // Public review links (#/review/...) and genuine client users are strictly preserved.
   useEffect(() => {
-    if (!loading && user && (isClientAccount || hasPendingClientClaim || clientLibraryAccess) && !isPreviewMode) {
+    if (!loading && user && (isClientAccount || hasPendingClientClaim || clientLibraryAccess || isClientAuthCallback) && !isPreviewMode) {
       const hash = window.location.hash;
       if (!hash.startsWith('#/review/')) setCurrentView('client');
       return;
@@ -144,7 +145,7 @@ const AppContent: React.FC = () => {
         setEngineerTab('projects');
       }
     }
-  }, [user, loading, isStudioStaff, isClientAccount, hasPendingClientClaim, currentView, setCurrentView, setEngineerTab, clientLibraryAccess]);
+  }, [user, loading, isStudioStaff, isClientAccount, hasPendingClientClaim, currentView, setCurrentView, setEngineerTab, clientLibraryAccess, isClientAuthCallback]);
 
   // Listen to hash change for direct share links and tab routing
   useEffect(() => {
@@ -191,7 +192,7 @@ const AppContent: React.FC = () => {
         setActiveProjectId(null);
         setEngineerTab('projects');
       } else if (hash === '#engineer' || hash === '#/engineer' || hash === '#dashboard' || hash === '') {
-        if (isClientAccount || hasPendingClientClaim || clientLibraryAccess) setCurrentView('client');
+        if (isClientAccount || hasPendingClientClaim || clientLibraryAccess || isClientAuthCallback) setCurrentView('client');
         else setCurrentView('engineer');
       }
     };
@@ -199,7 +200,7 @@ const AppContent: React.FC = () => {
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId, isClientAccount, hasPendingClientClaim, clientLibraryAccess]);
+  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId, isClientAccount, hasPendingClientClaim, clientLibraryAccess, isClientAuthCallback]);
 
   // Auth should never leave the user on an indefinite blank/loading screen.
   if (loading) {
