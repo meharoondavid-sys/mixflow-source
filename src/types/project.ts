@@ -26,6 +26,7 @@ export interface ProjectRecord {
   deposit_amount: number;
   deadline: string | null;
   status: ProjectStatus;
+  project_code?: string;
   created_at: string;
   updated_at: string;
   // Hydrated references
