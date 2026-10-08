@@ -3,7 +3,7 @@ import { ArrowRight, Disc3, Lock, Mail, User, Loader2, ShieldCheck } from 'lucid
 import { useAuth } from '../../context/AuthContext';
 
 export const ClientAuthScreen: React.FC = () => {
-  const { signInClient, signUpClient, pendingConfirmationEmail, setPendingConfirmationEmail } = useAuth();
+  const { signIn, signUpClient, pendingConfirmationEmail, setPendingConfirmationEmail } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -32,7 +32,7 @@ export const ClientAuthScreen: React.FC = () => {
     try {
       const result = mode === 'signup'
         ? await signUpClient({ fullName, email, password })
-        : await signInClient(email, password);
+        : await signIn(email, password);
 
       if (result.error) {
         setError(result.error.message);
