@@ -365,10 +365,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string): Promise<{ error: Error | null; diagnostic?: AuthDiagnosticError | null }> => {
     const supabase = getSupabase();
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const request = supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
+      const { data, error } = await Promise.race([
+        request,
+        new Promise<{ data: { user: User | null; session: Session | null }; error: AuthError | null }>((resolve) =>
+          setTimeout(() => resolve({
+            data: { user: null, session: null },
+            error: new AuthError('Sign in timed out. Please check your connection and try again.'),
+          }), 15000)
+        ),
+      ]);
 
       if (error) {
         const diag = extractDiagnostic('supabase.auth.signIn', error);
