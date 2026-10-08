@@ -49,7 +49,8 @@ const AppContent: React.FC = () => {
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
   const isClientAuthCallback = new URLSearchParams(window.location.search).get('client_auth') === '1';
   const clientClaimInFlight = useRef(false);
-  const [clientLibraryAccess, setClientLibraryAccess] = useState(false);\n  const [clientClaimError, setClientClaimError] = useState<string | null>(null);
+  const [clientLibraryAccess, setClientLibraryAccess] = useState(false);
+  const [clientClaimError, setClientClaimError] = useState<string | null>(null);
   const [hasPendingClientClaim, setHasPendingClientClaim] = useState(() => {
     try {
       const raw = window.localStorage.getItem('mixflow_client_claim');
