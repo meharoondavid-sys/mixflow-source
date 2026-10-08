@@ -506,8 +506,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Client accounts use the same secure Supabase email/password auth,
-  // but are explicitly marked as clients so they never provision a studio workspace.
+  // Client accounts are created through our server so only client emails are
+  // auto-confirmed. Studio/engineer signup continues using Supabase's normal flow.
   const signUpClient = async (params: {
     fullName: string;
     email: string;
@@ -518,45 +518,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const trimmedFullName = params.fullName.trim();
       const trimmedEmail = params.email.trim().toLowerCase();
 
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: trimmedEmail,
-        password: params.password,
-        options: {
-          data: {
-            full_name: trimmedFullName,
-            account_type: 'client',
-          },
-        },
+      const response = await fetch('/api/client-auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: trimmedFullName,
+          email: trimmedEmail,
+          password: params.password,
+        }),
       });
 
-      if (authError) {
-        const diag = extractDiagnostic('supabase.auth.signUp', authError);
-        return { error: new Error(formatAuthError(authError)), diagnostic: diag };
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return {
+          error: new Error(payload?.error || 'Client account creation failed. Please try again.'),
+          diagnostic: {
+            operation: 'client-auth.signup',
+            message: payload?.error || 'Client account creation failed.',
+            code: String(response.status),
+            status: response.status,
+          },
+        };
       }
 
-      const newUser = authData.user;
-      if (!newUser) {
-        return { error: new Error('Account creation returned no user. Please try again.'), diagnostic: { operation: 'supabase.auth.signUp', message: 'Empty user response.', code: 'EMPTY_USER_RESPONSE' } };
+      // The server has already auto-confirmed this client account.
+      // Sign in normally to establish the browser session.
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: params.password,
+      });
+
+      if (signInError || !signInData.session || !signInData.user) {
+        const diag = extractDiagnostic('supabase.auth.signIn', signInError || new Error('No active session returned after client signup.'));
+        return {
+          error: new Error(signInError ? formatAuthError(signInError) : 'Account was created, but MixFlow could not sign you in automatically. Please sign in with your new account.'),
+          diagnostic: diag,
+        };
       }
 
-      if (authData.session) {
-        setPendingConfirmationEmail(null);
-        setUser(newUser);
-        setSession(authData.session);
-        void loadUserEntities(newUser.id);
-        return { error: null, diagnostic: null };
-      }
+      setPendingConfirmationEmail(null);
+      setUser(signInData.user);
+      setSession(signInData.session);
+      void loadUserEntities(signInData.user.id);
 
-      setPendingConfirmationEmail(trimmedEmail);
-      return {
-        error: null,
-        diagnostic: null,
-        requiresConfirmation: true,
-        message: 'Your client account has been created. Please confirm your email, then sign in with your email and password.',
-      };
+      return { error: null, diagnostic: null };
     } catch (err: unknown) {
-      const diag = extractDiagnostic('supabase.auth.signUp', err);
-      return { error: err instanceof Error ? err : new Error('Client account creation failed. Please try again.'), diagnostic: diag };
+      const diag = extractDiagnostic('client-auth.signup', err);
+      console.error('[MixFlow Diagnostics] Unexpected client signup exception:', diag);
+      return {
+        error: err instanceof Error ? err : new Error('Client account creation failed. Please try again.'),
+        diagnostic: diag,
+      };
     }
   };
 
