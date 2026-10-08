@@ -5,10 +5,9 @@ import { ClientPortalProjectDetailView } from './ClientPortalProjectDetailView';
 import { ClientAudioReviewView } from './ClientAudioReviewView';
 import { useClientPortal } from '../../hooks/useClientPortal';
 import { useAuth } from '../../context/AuthContext';
-import { AlertCircle, UserCheck } from 'lucide-react';
 
 export const ClientPortal: React.FC = () => {
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
   const {
     profile,
     isClient,
@@ -86,7 +85,6 @@ export const ClientPortal: React.FC = () => {
     return () => { cancelled = true; };
   }, [publicReviewToken, activeProjectIdFromHash, reviewSongIdFromHash]);
 
-
   const handleSelectProject = (projectId: string) => {
     window.location.hash = `#/client/project/${projectId}`;
   };
@@ -118,37 +116,6 @@ export const ClientPortal: React.FC = () => {
               publicReviewToken={publicReviewToken}
             />
           ) : null
-        ) : !loading && !isClient ? (
-          /* Non-client State: Authenticated user has no client profile linked */
-          <div className="max-w-lg mx-auto bg-zinc-900/60 border border-zinc-800 rounded-3xl p-8 text-center space-y-4 shadow-xl my-12">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
-              <UserCheck size={24} />
-            </div>
-            <h2 className="text-base font-bold text-white tracking-tight">Client Account Pending</h2>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              You are signed in as <span className="font-mono text-zinc-300">{user?.email}</span>, but your account has not yet been linked to an active studio client profile.
-            </p>
-            <p className="text-[11px] text-zinc-500">
-              When your studio engineer registers your email address for your audio projects, your projects and tracks will automatically appear here.
-            </p>
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
-              <button
-                onClick={() => {
-                  window.location.hash = '';
-                  window.location.reload();
-                }}
-                className="w-full sm:w-auto px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition cursor-pointer shadow-lg shadow-emerald-500/20"
-              >
-                Go to Studio Engineer Console →
-              </button>
-              <button
-                onClick={refreshPortal}
-                className="w-full sm:w-auto px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 rounded-xl transition cursor-pointer"
-              >
-                Refresh Account Status
-              </button>
-            </div>
-          </div>
         ) : activeProjectIdFromHash && reviewSongIdFromHash && activeProject ? (
           /* Song Review View */
           <ClientAudioReviewView
@@ -179,7 +146,10 @@ export const ClientPortal: React.FC = () => {
             }}
           />
         ) : (
-          /* Projects List View */
+          /* Projects List View
+             A newly created client account may not have a client profile yet.
+             The Add Project flow can securely create/link that profile when the
+             engineer's Project Code is claimed, so do not block the library here. */
           <ClientPortalProjectsView
             projects={projects}
             loading={loading}
