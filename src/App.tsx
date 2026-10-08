@@ -9,6 +9,7 @@ import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal
 import { MobileProjectFileUploadView } from './components/engineer/MobileProjectFileUploadView';
 import { ClientAudioReviewView } from './components/client/ClientAudioReviewView';
 import { PublicReviewView } from './components/client/PublicReviewView';
+import { ClientPortalPreview } from './components/client/ClientPortalPreview';
 import { getSupabase } from './lib/supabase';
 
 // Modals
@@ -330,6 +331,11 @@ const AppContent: React.FC = () => {
 };
 
 export default function App() {
+  // UI-only client portal preview for product/design testing. It never touches auth or project data.
+  if (new URLSearchParams(window.location.search).get('preview') === 'client') {
+    return <ClientPortalPreview />;
+  }
+
   // Public review links are intentionally outside AuthProvider: clients do not need a MixFlow account.
   if (/^#\/?review\//.test(window.location.hash)) {
     return <PublicReviewView />;
