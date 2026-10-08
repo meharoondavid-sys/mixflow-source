@@ -952,6 +952,21 @@ async function startServer() {
     });
   });
 
+  // Client email/password signup: server-side creation auto-confirms client email only.
+  app.post('/api/client-auth/signup', async (req, res) => {
+    try {
+      const result = await handleClientSignup({
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Client signup error:', err);
+      return res.status(500).json({ error: 'Failed to create your client account.' });
+    }
+  });
+
   // Public no-login client review links
   const publicReviewContext = (req: express.Request) => ({
     authHeader: req.headers.authorization,
