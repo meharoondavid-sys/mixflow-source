@@ -48,6 +48,7 @@ const AppContent: React.FC = () => {
   const isPasswordRecovery = window.location.hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('reset') === '1';
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
   const clientClaimInFlight = useRef(false);
+  const [clientLibraryAccess, setClientLibraryAccess] = useState(false);
 
   // Complete the post-approval client account claim after a passwordless sign-in.
   useEffect(() => {
@@ -80,6 +81,7 @@ const AppContent: React.FC = () => {
         }
 
         window.localStorage.removeItem('mixflow_client_claim');
+        setClientLibraryAccess(true);
         window.location.hash = '#/client/projects';
       } catch (err) {
         console.error('[MixFlow] Client account claim failed:', err);
@@ -110,7 +112,7 @@ const AppContent: React.FC = () => {
       return;
     }
 
-    if (!loading && user && isStudioStaff && !isPreviewMode) {
+    if (!loading && user && isStudioStaff && !isPreviewMode && !clientLibraryAccess) {
       const hash = window.location.hash;
       // Do NOT interfere with public review links (#/review/...)
       if (hash.startsWith('#/review/')) {
@@ -121,13 +123,16 @@ const AppContent: React.FC = () => {
       // or empty hash, ensure they are routed to the Engineer/Studio Console after authentication.
       if (
         currentView === 'client' &&
-        (hash === '#/client' || hash === '#client' || hash === '#/client/projects' || hash === '')
+        !hash.startsWith('#/client/') &&
+        hash !== '#/client' &&
+        hash !== '#client' &&
+        (hash === '' || hash === '#engineer' || hash === '#/engineer' || hash === '#dashboard')
       ) {
         setCurrentView('engineer');
         setEngineerTab('projects');
       }
     }
-  }, [user, loading, isStudioStaff, currentView, setCurrentView, setEngineerTab]);
+  }, [user, loading, isStudioStaff, currentView, setCurrentView, setEngineerTab, clientLibraryAccess]);
 
   // Listen to hash change for direct share links and tab routing
   useEffect(() => {
