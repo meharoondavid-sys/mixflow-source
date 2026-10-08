@@ -22,6 +22,7 @@ export const ClientPortal: React.FC = () => {
     isUploading,
     uploadFileToStudio,
     refreshPortal,
+    claimProject,
     fetchProjectDetail,
     setActiveProject,
     downloadFile,
@@ -185,6 +186,10 @@ export const ClientPortal: React.FC = () => {
             error={error}
             onSelectProject={handleSelectProject}
             onRefresh={refreshPortal}
+            onClaimProject={async (projectCode) => {
+              const result = await claimProject(projectCode);
+              return { error: result.error };
+            }}
           />
         )}
       </main>
