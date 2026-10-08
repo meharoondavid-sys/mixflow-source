@@ -62,6 +62,7 @@ import {
   handleCollaboratorCreateFeedback,
 } from './src/server/collaboratorProjectHandler.js';
 
+import { handleClientSignup } from './src/server/clientAuthHandler.js';
 import {
   handleCreatePublicReviewLink,
   handlePublicReview,
