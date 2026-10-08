@@ -144,7 +144,7 @@ const AppContent: React.FC = () => {
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId, isClientAccount, hasPendingClientClaim, clientLibraryAccess, isClientAuthCallback]);
+  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId, isClientAccount]);
 
   // Auth should never leave the user on an indefinite blank/loading screen.
   if (loading) {
