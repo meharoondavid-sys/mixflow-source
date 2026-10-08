@@ -71,7 +71,7 @@ export const PublicReviewView: React.FC = () => {
         email,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: 'https://mixflow-client-preview.onrender.com',
           data: {
             account_type: 'client',
           },
