@@ -506,6 +506,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Client accounts use the same secure Supabase email/password auth,
+  // but are explicitly marked as clients so they never provision a studio workspace.
+  const signUpClient = async (params: {
+    fullName: string;
+    email: string;
+    password: string;
+  }): Promise<SignUpResult> => {
+    const supabase = getSupabase();
+    try {
+      const trimmedFullName = params.fullName.trim();
+      const trimmedEmail = params.email.trim().toLowerCase();
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password: params.password,
+        options: {
+          data: {
+            full_name: trimmedFullName,
+            account_type: 'client',
+          },
+        },
+      });
+
+      if (authError) {
+        const diag = extractDiagnostic('supabase.auth.signUp', authError);
+        return { error: new Error(formatAuthError(authError)), diagnostic: diag };
+      }
+
+      const newUser = authData.user;
+      if (!newUser) {
+        return { error: new Error('Account creation returned no user. Please try again.'), diagnostic: { operation: 'supabase.auth.signUp', message: 'Empty user response.', code: 'EMPTY_USER_RESPONSE' } };
+      }
+
+      if (authData.session) {
+        setPendingConfirmationEmail(null);
+        setUser(newUser);
+        setSession(authData.session);
+        void loadUserEntities(newUser.id);
+        return { error: null, diagnostic: null };
+      }
+
+      setPendingConfirmationEmail(trimmedEmail);
+      return {
+        error: null,
+        diagnostic: null,
+        requiresConfirmation: true,
+        message: 'Your client account has been created. Please confirm your email, then sign in with your email and password.',
+      };
+    } catch (err: unknown) {
+      const diag = extractDiagnostic('supabase.auth.signUp', err);
+      return { error: err instanceof Error ? err : new Error('Client account creation failed. Please try again.'), diagnostic: diag };
+    }
+  };
+
   // Sign Out
   const signOut = async () => {
     const supabase = getSupabase();
@@ -602,6 +656,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAnonKeyManually,
         signIn,
         signUp,
+        signUpClient,
         signOut,
         refreshProfileAndOrg,
         signInAsDemo,
