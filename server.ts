@@ -10,6 +10,7 @@ import {
   handleCreateSignedUploadUrl,
   handleConfirmFileUpload,
   handleGetSignedDownloadUrl,
+  handleGetClientShareUrl,
   handleDeleteProjectFile,
 } from './src/server/projectFilesHandler.js';
 import {
@@ -19,6 +20,7 @@ import {
   handleGetClientPortalFileDownloadUrl,
   handleCreateClientFileUploadUrl,
   handleConfirmClientFileUpload,
+  handleClaimClientProject,
 } from './src/server/clientPortalHandler.js';
 import {
   handleListProjectVersions,
@@ -60,6 +62,17 @@ import {
   handleCollaboratorCreateFeedback,
 } from './src/server/collaboratorProjectHandler.js';
 
+import { handleClientSignup } from './src/server/clientAuthHandler.js';
+import {
+  handleCreatePublicReviewLink,
+  handlePublicReview,
+  handlePublicReviewPlayback,
+  handlePublicReviewFeedback,
+  handlePublicReviewDeleteFeedback,
+  handlePublicReviewAction,
+  handleClaimClientAccount,
+} from './src/server/publicReviewHandler.js';
+
 dotenv.config({ override: true });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -79,6 +92,7 @@ async function startServer() {
     supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
   });
 
   app.post('/api/projects/:projectId/collaborators/invites', async (req, res) => {
@@ -154,6 +168,7 @@ async function startServer() {
         supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
         supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
         supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
       });
       return res.status(result.status).json(result.body);
     } catch (err) {
@@ -351,7 +366,29 @@ async function startServer() {
     }
   });
 
-  // 5. Delete File
+  // 5. Create a time-limited client share URL
+  app.post('/api/projects/:projectId/files/:fileId/share-url', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+      const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      const result = await handleGetClientShareUrl({
+        authHeader,
+        projectId: req.params.projectId,
+        fileId: req.params.fileId,
+        supabaseUrl,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err: any) {
+      console.error('[MixFlow Server] Client share URL error:', err);
+      return res.status(500).json({ error: 'Failed to create client share link.' });
+    }
+  });
+
+  // 6. Delete File
   app.delete('/api/projects/:projectId/files/:fileId', async (req, res) => {
     try {
       const authHeader = req.headers.authorization;
@@ -378,6 +415,23 @@ async function startServer() {
   // ==========================================
   // Client Portal Foundation Endpoints (Step 10)
   // ==========================================
+
+  // Claim a project into the authenticated client's My Music library using its unique project code.
+  app.post('/api/client-portal/projects/claim', async (req, res) => {
+    try {
+      const result = await handleClaimClientProject({
+        authHeader: req.headers.authorization,
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Client project claim error:', err);
+      return res.status(500).json({ error: 'Failed to add project to your MixFlow library.' });
+    }
+  });
 
   // 1. GET /api/client-portal/me - Get Client Identity
   app.get('/api/client-portal/me', async (req, res) => {
@@ -456,6 +510,7 @@ async function startServer() {
         supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
         supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
         supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
       });
       return res.status(result.status).json(result.body);
     } catch (err) {
@@ -474,6 +529,7 @@ async function startServer() {
         supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
         supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
         supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
       });
       return res.status(result.status).json(result.body);
     } catch (err) {
@@ -895,6 +951,75 @@ async function startServer() {
     return res.status(405).json({
       error: 'Method Not Allowed. Notifications are immutable activity records and cannot be deleted.',
     });
+  });
+
+  // Client email/password signup: server-side creation auto-confirms client email only.
+  app.post('/api/client-auth/signup', async (req, res) => {
+    try {
+      const result = await handleClientSignup({
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Client signup error:', err);
+      return res.status(500).json({ error: 'Failed to create your client account.' });
+    }
+  });
+
+  // Public no-login client review links
+  const publicReviewContext = (req: express.Request) => ({
+    authHeader: req.headers.authorization,
+    projectId: req.params.projectId,
+    songId: req.params.songId,
+    token: typeof req.query.token === 'string' ? req.query.token : undefined,
+    versionId: req.params.versionId,
+    body: req.body,
+    supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publicReviewSecret: process.env.PUBLIC_REVIEW_SECRET || '',
+  });
+
+  app.post('/api/public-review/:projectId/:songId/link', async (req, res) => {
+    try { const result = await handleCreatePublicReviewLink(publicReviewContext(req)); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Public review link error:', err); return res.status(500).json({ error: 'Failed to create review link.' }); }
+  });
+
+  app.get('/api/public-review/:projectId/:songId', async (req, res) => {
+    try { const result = await handlePublicReview(publicReviewContext(req)); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Public review load error:', err); return res.status(500).json({ error: 'Failed to load public review.' }); }
+  });
+
+  app.get('/api/public-review/:projectId/:songId/versions/:versionId/playback-url', async (req, res) => {
+    try { const result = await handlePublicReviewPlayback(publicReviewContext(req)); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Public review playback error:', err); return res.status(500).json({ error: 'Failed to generate playback URL.' }); }
+  });
+
+  app.post('/api/public-review/:projectId/:songId/feedback', async (req, res) => {
+    try { const result = await handlePublicReviewFeedback(publicReviewContext(req)); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Public review feedback error:', err); return res.status(500).json({ error: 'Failed to save feedback.' }); }
+  });
+
+  app.delete('/api/public-review/:projectId/:songId/feedback/:versionId', async (req, res) => {
+    try { const result = await handlePublicReviewDeleteFeedback(publicReviewContext(req)); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Public review feedback deletion error:', err); return res.status(500).json({ error: 'Failed to remove feedback.' }); }
+  });
+
+  app.post('/api/public-review/:projectId/:songId/claim-account', async (req, res) => {
+    try {
+      const result = await handleClaimClientAccount(publicReviewContext(req));
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Client account claim error:', err);
+      return res.status(500).json({ error: 'Failed to link your MixFlow account.' });
+    }
+  });
+
+  app.post('/api/public-review/:projectId/:songId/action', async (req, res) => {
+    try { const result = await handlePublicReviewAction(publicReviewContext(req)); return res.status(result.status).json(result.body); }
+    catch (err) { console.error('[MixFlow Server] Public review action error:', err); return res.status(500).json({ error: 'Failed to update review status.' }); }
   });
 
   const isProduction = process.env.NODE_ENV === 'production';

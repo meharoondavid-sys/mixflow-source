@@ -253,6 +253,28 @@ export const ClientReviewView: React.FC = () => {
           </form>
         </div>
 
+        {/* Optional account CTA — reviewing never requires an account */}
+        <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-zinc-100">Want to keep all your projects in one place?</p>
+            <p className="text-xs text-zinc-400 mt-1">
+              Create a free MixFlow account to make it easier to access your projects from one dashboard.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const url = new URL(window.location.href);
+              url.searchParams.set('signup', '1');
+              window.history.replaceState({}, '', url.toString());
+              window.location.hash = '';
+            }}
+            className="shrink-0 px-4 py-2 bg-zinc-100 hover:bg-white text-black font-bold text-xs rounded-xl transition-colors"
+          >
+            Create Free Account
+          </button>
+        </div>
+
         {/* Two Column Layout: Versions & Comments (Left) + Billing & Delivery (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Comments List & Version Notes */}

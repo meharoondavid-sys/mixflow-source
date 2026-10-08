@@ -12,6 +12,7 @@ import {
   Trash2, 
   Plus, 
   FileText, 
+  Upload,
   User, 
   Building, 
   Mail, 
@@ -24,7 +25,9 @@ import {
   Sparkles,
   Tag,
   Users,
-  Check
+  Check,
+  Link2,
+  Copy
 } from 'lucide-react';
 import { useProjects } from '../../hooks/useProjects';
 import { useServices } from '../../hooks/useServices';
@@ -35,6 +38,8 @@ import { ProjectFeedbackTab } from './ProjectFeedbackTab';
 import { ProjectPaymentsSection } from './ProjectPaymentsSection';
 import { ProjectDeliveriesSection } from './ProjectDeliveriesSection';
 import { useProjectPayments } from '../../hooks/useProjectPayments';
+import { useApp } from '../../context/AppContext';
+import { getSupabase } from '../../lib/supabase';
 import { 
   ProjectRecord, 
   ProjectType,
@@ -70,6 +75,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   } = useProjects();
 
   const { clients } = useClients();
+  const { setActiveProjectId, setActiveUploadSongId, setIsUploadMixOpen } = useApp();
 
   const project = projects.find((p) => p.id === projectId);
 
@@ -90,6 +96,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   const [editingSong, setEditingSong] = useState<ProjectSongRecord | null>(null);
   const [editSongTitle, setEditSongTitle] = useState('');
   const [editSongTrackNum, setEditSongTrackNum] = useState('');
+  const [editSongBpm, setEditSongBpm] = useState('');
   const [editSongStatus, setEditSongStatus] = useState('in_production');
   const [isSavingSong, setIsSavingSong] = useState(false);
   const [deletingSong, setDeletingSong] = useState<ProjectSongRecord | null>(null);
@@ -106,6 +113,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   const [editDescription, setEditDescription] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editDeposit, setEditDeposit] = useState('');
+  const [editCurrency, setEditCurrency] = useState('INR');
   const [editDeadline, setEditDeadline] = useState('');
   const [editStatus, setEditStatus] = useState<ProjectStatus>('inquiry');
 
@@ -117,6 +125,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
     setEditDescription(project.description || '');
     setEditPrice(String(project.project_price || 0));
     setEditDeposit(String(project.deposit_amount || 0));
+    setEditCurrency(project.currency || 'INR');
     setEditDeadline(project.deadline || '');
     setEditStatus(project.status);
     setEditError(null);
@@ -158,6 +167,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
       description: editDescription.trim() || null,
       project_price: priceNum,
       deposit_amount: depositNum,
+      currency: editCurrency,
       deadline: editDeadline || null,
       status: editStatus,
     });
@@ -305,12 +315,8 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   }
 
   const balance = paymentSummary.outstanding_balance;
-  const statusConfig = PROJECT_STATUS_CONFIG[project.status] || {
-    label: project.status,
-    color: 'text-zinc-300',
-    bg: 'bg-zinc-800',
-    border: 'border-zinc-700',
-  };
+  const statusConfig = PROJECT_STATUS_CONFIG[project.status] || PROJECT_STATUS_CONFIG.inquiry;
+  const currencySymbol = ({ INR: '₹', USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$' } as Record<string, string>)[project.currency || 'INR'] || '₹';
 
   const handleStatusChange = async (newStatus: ProjectStatus) => {
     setIsUpdatingStatus(true);
@@ -352,6 +358,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
     setEditingSong(song);
     setEditSongTitle(song.title);
     setEditSongTrackNum(String(song.track_number));
+    setEditSongBpm(song.bpm == null ? '' : String(song.bpm));
     setEditSongStatus(song.status || 'in_production');
     setSongActionError(null);
   };
@@ -364,6 +371,11 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
       return;
     }
     const trackNum = Number(editSongTrackNum);
+    const bpmNum = editSongBpm.trim() === '' ? null : Number(editSongBpm);
+    if (bpmNum !== null && (!Number.isInteger(bpmNum) || bpmNum < 1 || bpmNum > 400)) {
+      setSongActionError('BPM must be between 1 and 400, or left blank.');
+      return;
+    }
     if (!trackNum || trackNum <= 0) {
       setSongActionError('Track number must be greater than 0.');
       return;
@@ -374,6 +386,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
     const res = await updateSong(project.id, editingSong.id, {
       title: editSongTitle.trim(),
       track_number: trackNum,
+      bpm: bpmNum,
       status: editSongStatus,
     });
     setIsSavingSong(false);
@@ -558,18 +571,68 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          window.dispatchEvent(new CustomEvent('mixflow:project-file-filter', { detail: { songId: song.id } }));
-                          document.getElementById('project-files-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
-                        title={`View files for ${song.title}`}
-                      >
-                        <FileText size={12} />
-                        <span>Files</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('mixflow:project-file-filter', { detail: { songId: song.id } }));
+                            document.getElementById('project-files-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                          title={`View files for ${song.title}`}
+                        >
+                          <FileText size={12} />
+                          <span>Files</span>
+                        </button>
+
+                        {canManageProjects && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveProjectId(project.id);
+                                setActiveUploadSongId(song.id);
+                                setIsUploadMixOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-sm"
+                              title={`Upload ${song.title} for client review`}
+                            >
+                              <Upload size={12} />
+                              <span>Upload for Review</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const { data: sessionData } = await getSupabase().auth.getSession();
+                                  const token = sessionData.session?.access_token;
+                                  if (!token) throw new Error('Your session has expired. Please sign in again.');
+                                  const response = await fetch(`/api/public-review/${project.id}/${song.id}/link`, {
+                                    method: 'POST',
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                  const data = await response.json().catch(() => ({}));
+                                  if (!response.ok || !data.token) throw new Error(data.error || 'Could not create review link.');
+                                  const url = `${window.location.origin}${window.location.pathname}#/review/${project.id}/${song.id}?token=${encodeURIComponent(data.token)}`;
+                                  try {
+                                    await navigator.clipboard.writeText(url);
+                                    alert('Review link copied. The client can open it without signing in.');
+                                  } catch {
+                                    window.prompt('Copy this review link:', url);
+                                  }
+                                } catch (error: any) {
+                                  alert(error?.message || 'Could not create review link.');
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                              title={`Copy review link for ${song.title}`}
+                            >
+                              <Link2 size={12} />
+                              <span>Copy Review Link</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
 
                     {canManageProjects && (
                       <div className="flex items-center gap-1">
@@ -1054,6 +1117,31 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
             )}
           </div>
 
+          {/* Client Project Code */}
+          <div className="bg-zinc-900 border border-emerald-500/15 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 font-mono">Client Project Code</h3>
+                <p className="mt-1 text-[11px] text-zinc-600">Share this code with the client so they can add this project to My Music.</p>
+              </div>
+              <Tag size={15} className="text-emerald-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2.5 font-mono text-sm font-semibold tracking-wider text-emerald-300">
+                {project.project_code || 'Generating…'}
+              </div>
+              <button
+                type="button"
+                disabled={!project.project_code}
+                onClick={() => project.project_code && navigator.clipboard?.writeText(project.project_code)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-emerald-500/30 hover:text-emerald-300 disabled:opacity-40"
+                title="Copy project code"
+              >
+                <Copy size={15} />
+              </button>
+            </div>
+          </div>
+
           {/* Record Metadata */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-2 text-xs font-mono text-zinc-400">
             <div className="flex justify-between">
@@ -1216,7 +1304,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Project Price ($)</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Project Price</label>
                   <input
                     type="number"
                     min="0"
@@ -1228,7 +1316,7 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Deposit Amount ($)</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Deposit Amount</label>
                   <input
                     type="number"
                     min="0"
@@ -1241,6 +1329,21 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-zinc-300 font-medium mb-1">Currency</label>
+                  <select
+                    value={editCurrency}
+                    onChange={(e) => setEditCurrency(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="INR">INR (₹)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="CAD">CAD (C$)</option>
+                    <option value="AUD">AUD (A$)</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-zinc-300 font-medium mb-1">Target Deadline</label>
                   <input
@@ -1533,6 +1636,22 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-zinc-200 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-zinc-300 font-medium mb-1 font-mono text-[11px] uppercase">
+                  BPM <span className="text-zinc-600 normal-case">(optional)</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="400"
+                  step="1"
+                  value={editSongBpm}
+                  onChange={(e) => setEditSongBpm(e.target.value)}
+                  placeholder="e.g. 120"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-zinc-200 font-mono focus:outline-none focus:border-emerald-500"
+                />
               </div>
 
               <div>

@@ -55,6 +55,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState<string>('');
   const [deposit, setDeposit] = useState<string>('');
+  const [currency, setCurrency] = useState<string>('INR');
   const [deadline, setDeadline] = useState('');
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
@@ -63,9 +64,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
   // EP / Album Tracks
   const [songs, setSongs] = useState<SongInput[]>([
-    { title: '', track_number: 1 },
-    { title: '', track_number: 2 },
-    { title: '', track_number: 3 },
+    { title: '', track_number: 1, bpm: null },
+    { title: '', track_number: 2, bpm: null },
+    { title: '', track_number: 3, bpm: null },
   ]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,7 +77,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const handleAddTrack = () => {
     setSongs((prev) => [
       ...prev,
-      { title: '', track_number: prev.length + 1 }
+      { title: '', track_number: prev.length + 1, bpm: null }
     ]);
   };
 
@@ -86,6 +87,10 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
       const updated = prev.filter((_, i) => i !== index);
       return updated.map((song, i) => ({ ...song, track_number: i + 1 }));
     });
+  };
+
+  const handleTrackBpmChange = (index: number, bpm: string) => {
+    setSongs((prev) => prev.map((song, i) => (i === index ? { ...song, bpm: bpm === '' ? null : Number(bpm) } : song)));
   };
 
   const handleTrackTitleChange = (index: number, title: string) => {
@@ -132,17 +137,18 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
     let formattedSongs: SongInput[] = [];
     if (projectType === 'single') {
       const title = singleSongTitle.trim() || name.trim();
-      formattedSongs = [{ title, track_number: 1 }];
+      formattedSongs = [{ title, track_number: 1, bpm: songs[0]?.bpm ?? null }];
     } else {
       formattedSongs = songs
         .filter((s) => s.title.trim() !== '')
         .map((s, idx) => ({
           title: s.title.trim(),
           track_number: idx + 1,
+          bpm: s.bpm ?? null,
         }));
 
       if (formattedSongs.length === 0) {
-        formattedSongs = [{ title: `${name.trim()} (Track 1)`, track_number: 1 }];
+        formattedSongs = [{ title: `${name.trim()} (Track 1)`, track_number: 1, bpm: null }];
       }
     }
 
@@ -153,6 +159,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
       description: description.trim() || null,
       project_price: priceNum,
       deposit_amount: depositNum,
+      currency,
       deadline: deadline || null,
       status: 'inquiry',
       songs: formattedSongs,
@@ -338,49 +345,17 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
             />
           </div>
 
-          {/* Financials, Deadline & Status Row */}
+          {/* Financials, Currency & Deadline */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             <div>
-              <label className="block text-zinc-300 font-medium mb-1">Project Price ($)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="850.00"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full pl-7 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500"
-                />
-              </div>
+              <label className="block text-zinc-300 font-medium mb-1">Currency</label>
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-emerald-500">
+                <option value="INR">INR (₹)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option><option value="CAD">CAD (C$)</option><option value="AUD">AUD (A$)</option>
+              </select>
             </div>
-
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">Deposit ($)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="425.00"
-                  value={deposit}
-                  onChange={(e) => setDeposit(e.target.value)}
-                  className="w-full pl-7 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">Target Deadline</label>
-              <input
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500"
-              />
-            </div>
+            <div><label className="block text-zinc-300 font-medium mb-1">Project Price</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">{currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'CAD' ? 'C$' : 'A$'}</span><input type="number" min="0" step="0.01" placeholder="850.00" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full pl-7 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500" /></div></div>
+            <div><label className="block text-zinc-300 font-medium mb-1">Deposit</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">{currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'CAD' ? 'C$' : 'A$'}</span><input type="number" min="0" step="0.01" placeholder="425.00" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="w-full pl-7 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500" /></div></div>
+            <div><label className="block text-zinc-300 font-medium mb-1">Target Deadline</label><input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono focus:outline-none focus:border-emerald-500" /></div>
           </div>
 
           {/* Production Services Scope Selector */}
@@ -427,13 +402,16 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
             {projectType === 'single' ? (
               <div>
                 <label className="block text-zinc-300 font-medium mb-1">Song Title</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Yeshua or leave blank to match project name"
-                  value={singleSongTitle}
-                  onChange={(e) => setSingleSongTitle(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono text-xs"
-                />
+                <div className="grid grid-cols-[1fr_90px] gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Yeshua or leave blank to match project name"
+                    value={singleSongTitle}
+                    onChange={(e) => setSingleSongTitle(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                  />
+                  <input type="number" min="1" max="400" placeholder="BPM" value={songs[0]?.bpm ?? ''} onChange={(e) => handleTrackBpmChange(0, e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono text-xs" />
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -464,6 +442,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                         onChange={(e) => handleTrackTitleChange(index, e.target.value)}
                         className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono text-xs"
                       />
+                      <input type="number" min="1" max="400" placeholder="BPM" value={song.bpm ?? ''} onChange={(e) => handleTrackBpmChange(index, e.target.value)} className="w-20 bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1.5 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono text-xs" />
                       {songs.length > 1 && (
                         <button
                           type="button"

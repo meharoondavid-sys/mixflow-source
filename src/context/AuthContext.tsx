@@ -81,6 +81,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setProfile(profileData || null);
 
+        // Client accounts are intentionally not provisioned as studio organizations.
+        // They access projects through the client portal and can be linked to projects
+        // after a secure project review flow.
+        const { data: currentUserData } = await supabase.auth.getUser();
+        if (currentUserData.user?.user_metadata?.account_type === 'client') {
+          setOrganization(null);
+          setRole(null);
+          setProvisioning(false);
+          return;
+        }
+
         let activeOrg: Organization | null = null;
         let activeRole: OrganizationRole | null = null;
 
@@ -352,12 +363,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sign In with email & password
   const signIn = async (email: string, password: string): Promise<{ error: Error | null; diagnostic?: AuthDiagnosticError | null }> => {
-    const supabase = getSupabase();
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const supabase = getSupabase();
+      const request = supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
+      const { data, error } = await Promise.race([
+        request,
+        new Promise<{ data: { user: User | null; session: Session | null }; error: AuthError | null }>((resolve) =>
+          setTimeout(() => resolve({
+            data: { user: null, session: null },
+            error: new AuthError('Sign in timed out. Please check your connection and try again.'),
+          }), 15000)
+        ),
+      ]);
 
       if (error) {
         const diag = extractDiagnostic('supabase.auth.signIn', error);
@@ -495,6 +515,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Client accounts are created through our server so only client emails are
+  // auto-confirmed. Studio/engineer signup continues using Supabase's normal flow.
+  const signUpClient = async (params: {
+    fullName: string;
+    email: string;
+    password: string;
+  }): Promise<SignUpResult> => {
+    const supabase = getSupabase();
+    try {
+      const trimmedFullName = params.fullName.trim();
+      const trimmedEmail = params.email.trim().toLowerCase();
+
+      const response = await fetch('/api/client-auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: trimmedFullName,
+          email: trimmedEmail,
+          password: params.password,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return {
+          error: new Error(payload?.error || 'Client account creation failed. Please try again.'),
+          diagnostic: {
+            operation: 'client-auth.signup',
+            message: payload?.error || 'Client account creation failed.',
+            code: String(response.status),
+            status: response.status,
+          },
+        };
+      }
+
+      // The server has already auto-confirmed this client account.
+      // Sign in normally to establish the browser session.
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: params.password,
+      });
+
+      if (signInError || !signInData.session || !signInData.user) {
+        const diag = extractDiagnostic('supabase.auth.signIn', signInError || new Error('No active session returned after client signup.'));
+        return {
+          error: new Error(signInError ? formatAuthError(signInError) : 'Account was created, but MixFlow could not sign you in automatically. Please sign in with your new account.'),
+          diagnostic: diag,
+        };
+      }
+
+      setPendingConfirmationEmail(null);
+      setUser(signInData.user);
+      setSession(signInData.session);
+      void loadUserEntities(signInData.user.id);
+
+      return { error: null, diagnostic: null };
+    } catch (err: unknown) {
+      const diag = extractDiagnostic('client-auth.signup', err);
+      console.error('[MixFlow Diagnostics] Unexpected client signup exception:', diag);
+      return {
+        error: err instanceof Error ? err : new Error('Client account creation failed. Please try again.'),
+        diagnostic: diag,
+      };
+    }
+  };
+
   // Sign Out
   const signOut = async () => {
     const supabase = getSupabase();
@@ -591,6 +678,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAnonKeyManually,
         signIn,
         signUp,
+        signUpClient,
         signOut,
         refreshProfileAndOrg,
         signInAsDemo,

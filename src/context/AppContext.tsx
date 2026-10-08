@@ -110,6 +110,8 @@ interface AppContextType {
   setIsNewProjectOpen: (open: boolean) => void;
   isUploadMixOpen: boolean;
   setIsUploadMixOpen: (open: boolean) => void;
+  activeUploadSongId: string | null;
+  setActiveUploadSongId: (songId: string | null) => void;
   isPaymentModalOpen: boolean;
   setIsPaymentModalOpen: (open: boolean) => void;
   isInvoiceModalOpen: boolean;
@@ -256,6 +258,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Modals
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [isUploadMixOpen, setIsUploadMixOpen] = useState(false);
+  const [activeUploadSongId, setActiveUploadSongId] = useState<string | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -816,6 +819,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsNewProjectOpen,
         isUploadMixOpen,
         setIsUploadMixOpen,
+        activeUploadSongId,
+        setActiveUploadSongId,
         isPaymentModalOpen,
         setIsPaymentModalOpen,
         isInvoiceModalOpen,

@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Upload, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { getSupabase, getSupabaseAnonKey } from '../../lib/supabase';
 
 export const UploadMixModal: React.FC = () => {
-  const { isUploadMixOpen, setIsUploadMixOpen, activeProject, uploadMixVersion } = useApp();
-  const nextVer = (activeProject?.versions.length || 0) + 1;
-  const [versionName, setVersionName] = useState(`Mix V${nextVer} - Revised Balance`);
+  const { isUploadMixOpen, setIsUploadMixOpen, activeProject, activeUploadSongId, setActiveUploadSongId, uploadMixVersion } = useApp();
+  const [nextVer, setNextVer] = useState((activeProject?.versions.length || 0) + 1);
+  const [versionName, setVersionName] = useState('Mix V1 - Revised Balance');
   const [notes, setNotes] = useState('');
   const [lufs, setLufs] = useState(-10.2);
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -15,6 +15,41 @@ export const UploadMixModal: React.FC = () => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!isUploadMixOpen || !activeProject) return;
+    let cancelled = false;
+
+    const loadNextVersion = async () => {
+      try {
+        const supabase = getSupabase();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) return;
+
+        const query = activeUploadSongId ? `?songId=${encodeURIComponent(activeUploadSongId)}` : '';
+        const res = await fetch(`/api/projects/${activeProject.id}/versions${query}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) return;
+
+        const body = await res.json();
+        const latest = (body.versions || []).reduce(
+          (max: number, version: any) => Math.max(max, Number(version.version_number) || 0),
+          0
+        );
+
+        if (!cancelled) {
+          const next = latest + 1;
+          setNextVer(next);
+          setVersionName(`Mix V${next} - Revised Balance`);
+        }
+      } catch {}
+    };
+
+    loadNextVersion();
+    return () => { cancelled = true; };
+  }, [isUploadMixOpen, activeProject?.id, activeUploadSongId]);
 
   if (!isUploadMixOpen || !activeProject) return null;
 
@@ -49,11 +84,18 @@ export const UploadMixModal: React.FC = () => {
         throw new Error('Could not find this project in the live workspace. Open the project from the Projects page and try again.');
       }
 
-      const { data: latestVersion, error: versionError } = await supabase
+      let latestVersionQuery = supabase
         .from('project_file_versions')
         .select('version_number')
-        .eq('project_id', activeProject.id)
-        .is('song_id', null)
+        .eq('project_id', activeProject.id);
+
+      if (activeUploadSongId) {
+        latestVersionQuery = latestVersionQuery.eq('song_id', activeUploadSongId);
+      } else {
+        latestVersionQuery = latestVersionQuery.is('song_id', null);
+      }
+
+      const { data: latestVersion, error: versionError } = await latestVersionQuery
         .order('version_number', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -63,22 +105,23 @@ export const UploadMixModal: React.FC = () => {
       const fileType = audioFile.type || 'application/octet-stream';
 
       setStatus('Preparing secure upload…');
-      const prepareRes = await fetch(`/api/projects/${activeProject.id}/files/upload-url`, {
+      const prepareRes = await fetch(`/api/projects/${activeProject.id}/versions/upload-url`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileName: audioFile.name,
           fileType,
           fileSize: audioFile.size,
-          songId: null,
+          songId: activeUploadSongId || null,
+          notes: notes.trim() || 'Addressed client feedback and refined balance.',
         }),
       });
       const prepareBody = await prepareRes.json().catch(() => ({}));
       if (!prepareRes.ok) {
         throw new Error(`Upload setup rejected (HTTP ${prepareRes.status}): ${prepareBody.error || 'Could not prepare upload.'}`);
       }
-      const { fileId, storagePath, token } = prepareBody;
-      if (!token) throw new Error('The secure upload token was not returned.');
+      const { versionId, storagePath, token } = prepareBody;
+      if (!versionId || !token) throw new Error('The secure version upload token was not returned.');
 
       setProgress(2);
       setStatus('Starting secure audio upload…');
@@ -89,7 +132,11 @@ export const UploadMixModal: React.FC = () => {
       await new Promise<void>((resolve, reject) => {
         const upload = new TusUpload(audioFile, {
           endpoint,
-          headers: { apikey: getSupabaseAnonKey(), 'x-signature': token },
+          headers: {
+            apikey: getSupabaseAnonKey(),
+            authorization: `Bearer ${accessToken}`,
+            'x-signature': token,
+          },
           metadata: {
             bucketName: 'project-files',
             objectName: storagePath,
@@ -118,50 +165,37 @@ export const UploadMixModal: React.FC = () => {
 
       setProgress(91);
       setStatus('Registering uploaded file…');
-      const confirmRes = await fetch(`/api/projects/${activeProject.id}/files/confirm`, {
+      const confirmRes = await fetch(`/api/projects/${activeProject.id}/versions/confirm`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fileId,
+          versionId,
           storagePath,
-          fileName: audioFile.name,
+          fileName: cleanName,
           fileType,
           fileSize: audioFile.size,
-          songId: null,
+          songId: activeUploadSongId || null,
+          notes: notes.trim() || 'Addressed client feedback and refined balance.',
         }),
       });
       const confirmBody = await confirmRes.json().catch(() => ({}));
       if (!confirmRes.ok) {
-        throw new Error(`File registration failed (HTTP ${confirmRes.status}): ${confirmBody.error || 'Could not register uploaded file.'}`);
+        throw new Error(`Mix version registration failed (HTTP ${confirmRes.status}): ${confirmBody.error || 'Could not publish this mix version.'}`);
       }
 
       setProgress(96);
       setStatus('Publishing mix version…');
-      const { error: insertError } = await supabase.from('project_file_versions').insert({
-        organization_id: projectRow.organization_id,
-        project_id: activeProject.id,
-        song_id: null,
-        file_id: fileId,
-        version_number: versionNumber,
-        name: cleanName,
-        storage_path: storagePath,
-        file_type: fileType,
-        file_size: audioFile.size,
-        notes: notes.trim() || 'Addressed client feedback and refined balance.',
-        uploaded_by: sessionData.session.user.id,
-      });
-      if (insertError) {
-        throw new Error(`Audio uploaded, but the mix version could not be published: ${insertError.message}`);
-      }
 
       // Keep the current studio preview responsive while the durable version is saved in Supabase.
-      uploadMixVersion(
-        activeProject.id,
-        cleanName,
-        notes.trim() || 'Addressed client feedback and refined balance.',
-        audioFile,
-        Number(lufs)
-      );
+      if (!activeUploadSongId) {
+        uploadMixVersion(
+          activeProject.id,
+          cleanName,
+          notes.trim() || 'Addressed client feedback and refined balance.',
+          audioFile,
+          Number(lufs)
+        );
+      }
       setProgress(100);
       setStatus('Mix published successfully.');
       setSuccess(true);
@@ -184,11 +218,14 @@ export const UploadMixModal: React.FC = () => {
               V{nextVer}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Upload Mix V{nextVer}</h3>
+              <h3 className="text-lg font-bold text-white">{activeUploadSongId ? 'Upload for Client Review' : `Upload Mix V${nextVer}`}</h3>
               <p className="text-xs text-zinc-400">{activeProject.title}</p>
             </div>
           </div>
-          <button type="button" disabled={isSubmitting} onClick={() => setIsUploadMixOpen(false)}
+          <button type="button" disabled={isSubmitting} onClick={() => {
+              setIsUploadMixOpen(false);
+              setActiveUploadSongId(null);
+            }}
             className="p-1.5 text-zinc-400 hover:text-white rounded-lg transition-colors disabled:opacity-40">
             <X size={18} />
           </button>
@@ -198,7 +235,7 @@ export const UploadMixModal: React.FC = () => {
           <AlertCircle size={15} className="shrink-0 mt-0.5" /><span>{error}</span>
         </div>}
         {success && <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex gap-2">
-          <CheckCircle2 size={15} className="shrink-0 mt-0.5" /><span>Mix uploaded and saved to the project.</span>
+          <CheckCircle2 size={15} className="shrink-0 mt-0.5" /><span>Mix uploaded and saved for this song's client review.</span>
         </div>}
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">

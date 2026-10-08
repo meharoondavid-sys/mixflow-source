@@ -22,7 +22,7 @@ interface ProjectsContextType {
   updateProject: (id: string, input: ProjectUpdateInput) => Promise<{ project: ProjectRecord | null; error: Error | null; diagnostic?: ProjectDiagnosticError | null }>;
   deleteProject: (id: string) => Promise<{ error: Error | null; diagnostic?: ProjectDiagnosticError | null }>;
   addSongToProject: (projectId: string, song: SongInput) => Promise<{ song: ProjectSongRecord | null; error: Error | null }>;
-  updateSong: (projectId: string, songId: string, song: { title?: string; track_number?: number; status?: string }) => Promise<{ song: ProjectSongRecord | null; error: Error | null }>;
+  updateSong: (projectId: string, songId: string, song: { title?: string; track_number?: number; bpm?: number | null; status?: string }) => Promise<{ song: ProjectSongRecord | null; error: Error | null }>;
   deleteSong: (projectId: string, songId: string) => Promise<{ error: Error | null }>;
   canManageProjects: boolean;
   role: string | null;
@@ -165,6 +165,7 @@ export const ProjectsProvider: React.FC<{ children: ReactNode }> = ({ children }
         ...p,
         project_price: Number(p.project_price) || 0,
         deposit_amount: Number(p.deposit_amount) || 0,
+        currency: p.currency || 'INR',
         client: clientsMap[p.client_id] || null,
         songs: songsMap[p.id] || [],
         service_count: servicesCountMap[p.id] || 0,
@@ -266,6 +267,7 @@ export const ProjectsProvider: React.FC<{ children: ReactNode }> = ({ children }
         description: input.description?.trim() || null,
         project_price: priceNum,
         deposit_amount: depositNum,
+        currency: input.currency || 'INR',
         deadline: input.deadline || null,
         status: input.status || 'inquiry',
       };
@@ -299,6 +301,7 @@ export const ProjectsProvider: React.FC<{ children: ReactNode }> = ({ children }
           project_id: newProjectId,
           title: songTitle,
           track_number: 1,
+          bpm: input.songs?.[0]?.bpm ?? null,
           status: 'in_production',
         });
       } else {
@@ -310,6 +313,7 @@ export const ProjectsProvider: React.FC<{ children: ReactNode }> = ({ children }
               project_id: newProjectId,
               title: s.title.trim(),
               track_number: s.track_number && s.track_number > 0 ? s.track_number : idx + 1,
+              bpm: s.bpm ?? null,
               status: 'in_production',
             }));
         } else {
@@ -346,6 +350,7 @@ export const ProjectsProvider: React.FC<{ children: ReactNode }> = ({ children }
         ...projectPayload,
         project_price: priceNum,
         deposit_amount: depositNum,
+        currency: input.currency || 'INR',
         client: verifiedClient,
         songs: createdSongs,
         created_at: new Date().toISOString(),
@@ -430,6 +435,7 @@ export const ProjectsProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (input.description !== undefined) payload.description = input.description?.trim() || null;
     if (input.project_price !== undefined) payload.project_price = priceNum;
     if (input.deposit_amount !== undefined) payload.deposit_amount = depositNum;
+    if (input.currency !== undefined) payload.currency = input.currency;
     if (input.deadline !== undefined) payload.deadline = input.deadline || null;
     if (input.status !== undefined) payload.status = input.status;
 
@@ -535,6 +541,7 @@ export const ProjectsProvider: React.FC<{ children: ReactNode }> = ({ children }
       project_id: projectId,
       title: song.title.trim(),
       track_number: trackNum,
+      bpm: song.bpm ?? null,
       status: 'in_production',
     };
 
@@ -608,6 +615,7 @@ export const ProjectsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     if (song.title !== undefined) payload.title = song.title.trim();
     if (song.track_number !== undefined) payload.track_number = Number(song.track_number);
+    if (song.bpm !== undefined) payload.bpm = song.bpm === null ? null : Number(song.bpm);
     if (song.status !== undefined) payload.status = song.status;
 
     const supabase = getSupabase();

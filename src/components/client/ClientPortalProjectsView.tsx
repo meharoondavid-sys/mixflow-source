@@ -7,8 +7,9 @@ import {
   Calendar, 
   Clock, 
   ChevronRight,
-  Disc3,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  X
 } from 'lucide-react';
 import { ClientPortalProjectSummary } from '../../types/clientPortal';
 
@@ -18,6 +19,7 @@ interface ClientPortalProjectsViewProps {
   error: string | null;
   onSelectProject: (projectId: string) => void;
   onRefresh: () => void;
+  onClaimProject: (projectCode: string) => Promise<{ error: Error | null }>;
 }
 
 export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> = ({
@@ -26,8 +28,13 @@ export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> =
   error,
   onSelectProject,
   onRefresh,
+  onClaimProject,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [projectCode, setProjectCode] = useState('');
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return projects;
@@ -119,26 +126,99 @@ export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> =
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Your Projects</h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Access track listings and authorized audio delivery files for your studio projects.
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <Music size={18} />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">My Music</h1>
+              <p className="text-xs text-zinc-400 mt-1">
+                Your projects, mixes, masters, and delivered files — all in one place.
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Search */}
-        {projects.length > 0 && (
-          <div className="relative w-full sm:w-64">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => { setShowAddProject(true); setClaimError(null); setProjectCode(''); }}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/15 transition"
+          >
+            <Plus size={14} />
+            Add Project
+          </button>
+          {projects.length > 0 && (
+            <div className="relative w-full sm:w-64">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search your projects..."
+              placeholder="Search your music..."
               className="w-full pl-9 pr-3 py-2 bg-zinc-900/80 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50 transition"
             />
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {showAddProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold text-white">Add a project</h2>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                  Enter the unique Project Code your engineer gave you.
+                </p>
+              </div>
+              <button type="button" onClick={() => setShowAddProject(false)} className="rounded-xl p-2 text-zinc-500 hover:bg-zinc-800 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setClaimError(null);
+                const normalized = projectCode.trim().toUpperCase();
+                if (!/^MF-[A-Z0-9]{12}$/.test(normalized)) {
+                  setClaimError('Project codes look like MF-XXXXXXXXXXXX.');
+                  return;
+                }
+                setClaiming(true);
+                const result = await onClaimProject(normalized);
+                setClaiming(false);
+                if (result.error) {
+                  setClaimError(result.error.message);
+                  return;
+                }
+                setShowAddProject(false);
+                setProjectCode('');
+              }}
+            >
+              <input
+                autoFocus
+                value={projectCode}
+                onChange={(event) => setProjectCode(event.target.value.toUpperCase())}
+                placeholder="MF-XXXXXXXXXXXX"
+                maxLength={15}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 font-mono text-sm tracking-wider text-white outline-none placeholder:text-zinc-700 focus:border-emerald-500/50"
+              />
+              {claimError && <p className="text-xs text-red-400">{claimError}</p>}
+              <button
+                type="submit"
+                disabled={claiming}
+                className="w-full rounded-xl bg-emerald-500 py-3 text-xs font-bold text-black hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {claiming ? 'Adding Project…' : 'Add to My Music'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Projects Grid */}
       {filteredProjects.length === 0 ? (
@@ -147,12 +227,12 @@ export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> =
             <FolderKanban size={24} />
           </div>
           <h3 className="text-sm font-semibold text-white">
-            {searchQuery ? 'No matching projects' : 'No projects available'}
+            {searchQuery ? 'No matching projects' : 'Your music library is empty'}
           </h3>
           <p className="text-xs text-zinc-500 max-w-sm mx-auto">
             {searchQuery
               ? 'No projects match your search query. Try typing a different name.'
-              : 'You do not have any active projects yet. When your audio engineer creates a project for you, it will appear here.'}
+              : 'When an engineer starts a project for you, it will appear here automatically.'}
           </p>
         </div>
       ) : (
@@ -197,7 +277,7 @@ export const ClientPortalProjectsView: React.FC<ClientPortalProjectsViewProps> =
                 </div>
 
                 <div className="flex items-center gap-1 text-emerald-400 group-hover:translate-x-0.5 transition-transform text-xs font-semibold">
-                  <span>View</span>
+                  <span>Open</span>
                   <ChevronRight size={14} />
                 </div>
               </div>

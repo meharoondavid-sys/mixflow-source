@@ -20,6 +20,7 @@ import {
   Layers,
   Search,
   ExternalLink,
+  Link,
 } from 'lucide-react';
 import { useProjectFiles } from '../../hooks/useProjectFiles';
 import { ProjectSongRecord } from '../../types/project';
@@ -44,6 +45,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
     canManageFiles,
     uploadFile,
     downloadFile,
+    createClientShareLink,
     deleteFile,
     userId,
   } = useProjectFiles(projectId);
@@ -67,6 +69,7 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
   const [uploadSongId, setUploadSongId] = useState<string>('');
   const [modalError, setModalError] = useState<string | null>(null);
   const [isDownloadingId, setIsDownloadingId] = useState<string | null>(null);
+  const [isSharingId, setIsSharingId] = useState<string | null>(null);
   const [deletingFile, setDeletingFile] = useState<ProjectFileRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -188,6 +191,23 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
     setIsDownloadingId(null);
     if (error) {
       alert(`Download failed: ${error.message}`);
+    }
+  };
+
+  const handleShare = async (file: ProjectFileRecord) => {
+    setIsSharingId(file.id);
+    const { signedUrl, expiresAt, error } = await createClientShareLink(file.id);
+    setIsSharingId(null);
+    if (error || !signedUrl) {
+      alert('Share link failed: ' + (error?.message || 'No link returned.'));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(signedUrl);
+      const expiresText = expiresAt ? new Date(expiresAt).toLocaleDateString() : '7 days';
+      alert('Client share link copied. It expires ' + expiresText + '.');
+    } catch {
+      window.prompt('Copy this client share link:', signedUrl);
     }
   };
 
@@ -425,6 +445,16 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                  <button
+                    onClick={() => handleShare(file)}
+                    disabled={isSharingId === file.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 rounded-xl text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                    title="Create a client link valid for 7 days"
+                  >
+                    {isSharingId === file.id ? <Loader2 size={13} className="animate-spin" /> : <Link size={13} />}
+                    <span>Share</span>
+                  </button>
+
                   <button
                     onClick={() => handleDownload(file)}
                     disabled={isDownloadingId === file.id}

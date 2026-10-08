@@ -448,8 +448,84 @@ export async function handleGetSignedDownloadUrl(
   };
 }
 
+
 /**
- * 5. Delete File
+ * 5. Get a client-shareable signed URL for a project file.
+ * The URL is time-limited and does not expose the storage path.
+ */
+export async function handleGetClientShareUrl(
+  ctx: ProjectFilesHandlerContext & { fileId: string }
+): Promise<{ status: number; body: any }> {
+  const { authHeader, projectId, fileId, supabaseUrl, supabaseAnonKey, supabaseServiceRoleKey } = ctx;
+  const createClientFn = ctx.createClientFn || createClient;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { status: 401, body: { error: 'Authentication required. Bearer token missing.' } };
+  }
+  const token = authHeader.replace(/^Bearer\s+/, '').trim();
+  const userClient = createClientFn(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: 'Bearer ' + token } },
+  });
+  const { data: userData, error: userErr } = await userClient.auth.getUser(token);
+  if (userErr || !userData?.user) {
+    return { status: 401, body: { error: 'Invalid or expired authentication session.' } };
+  }
+
+  const adminClient = createClientFn(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: project } = await adminClient
+    .from('projects')
+    .select('id, organization_id, name')
+    .eq('id', projectId)
+    .maybeSingle();
+  if (!project) return { status: 404, body: { error: 'Project not found.' } };
+
+  const { data: membership } = await adminClient
+    .from('organization_members')
+    .select('role')
+    .eq('organization_id', project.organization_id)
+    .eq('user_id', userData.user.id)
+    .maybeSingle();
+  if (!membership || !['owner', 'admin', 'engineer', 'producer'].includes(membership.role)) {
+    return { status: 403, body: { error: 'Forbidden: You do not have permission to share project files.' } };
+  }
+
+  const { data: targetFile } = await adminClient
+    .from('project_files')
+    .select('id, name, file_type, storage_path')
+    .eq('id', fileId)
+    .eq('project_id', projectId)
+    .maybeSingle();
+  if (!targetFile) return { status: 404, body: { error: 'File not found.' } };
+
+  const expectedPrefix = project.organization_id + '/' + projectId + '/';
+  if (!targetFile.storage_path.startsWith(expectedPrefix)) {
+    return { status: 403, body: { error: 'Security violation: File path mismatch.' } };
+  }
+
+  const expiresIn = 60 * 60 * 24 * 7;
+  const { data: signedData, error: signErr } = await adminClient.storage
+    .from('project-files')
+    .createSignedUrl(targetFile.storage_path, expiresIn, { download: targetFile.name });
+  if (signErr || !signedData?.signedUrl) {
+    console.error('[MixFlow Storage] Client share URL error:', signErr);
+    return { status: 500, body: { error: signErr?.message || 'Failed to create client share link.' } };
+  }
+
+  return {
+    status: 200,
+    body: {
+      signedUrl: signedData.signedUrl,
+      fileName: targetFile.name,
+      expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    },
+  };
+}
+
+/**
+ * 6. Delete File
  * Verifies caller is studio manager or original uploader before removing from storage and DB.
  */
 export async function handleDeleteProjectFile(

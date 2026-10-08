@@ -73,16 +73,18 @@ export const ProjectWorkspace: React.FC = () => {
   const balanceDue = activeProject.totalAmount - activeProject.paidAmount;
   const currencySymbol = engineer.currency === 'INR' ? '₹' : '$';
 
+  const getClientPortalLink = () =>
+    `${window.location.origin}${window.location.pathname}#/client/project/${activeProject.id}`;
+
   const copyShareLink = () => {
-    const url = `${window.location.origin}${window.location.pathname}#/review/${activeProject.shareToken}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(getClientPortalLink());
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const shareViaWhatsApp = () => {
-    const url = `${window.location.origin}${window.location.pathname}#/review/${activeProject.shareToken}`;
-    const text = `Hey ${activeProject.clientName}! Your latest mix for "${activeProject.title}" is ready for review on MixFlow: ${url}`;
+    const url = getClientPortalLink();
+    const text = `Hey ${activeProject.clientName}! Your project "${activeProject.title}" is ready in the MixFlow Client Portal. Open this link to sign in and review it: ${url}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -149,14 +151,14 @@ export const ProjectWorkspace: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           {/* Share Link Banner */}
           <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs">
-            <span className="text-zinc-500 font-mono hidden sm:inline">Client Link:</span>
+            <span className="text-zinc-500 font-mono hidden sm:inline">Client Portal:</span>
             <span className="font-mono text-emerald-400 text-[11px] truncate max-w-[130px] sm:max-w-[200px]">
-              mixflow.io/review/{activeProject.shareToken}
+              mixflow.io/client/project/{activeProject.id}
             </span>
             <button
               onClick={copyShareLink}
               className="p-1 hover:text-white text-zinc-400 transition-colors"
-              title="Copy client review link"
+              title="Copy client portal link"
             >
               {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
             </button>
@@ -165,17 +167,17 @@ export const ProjectWorkspace: React.FC = () => {
           <button
             onClick={shareViaWhatsApp}
             className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-medium transition-colors"
-            title="Send link via WhatsApp"
+            title="Send client portal link via WhatsApp"
           >
             WhatsApp
           </button>
 
           <button
-            onClick={() => openClientReview(activeProject.shareToken)}
+            onClick={() => window.open(getClientPortalLink(), "_blank", "noopener,noreferrer")}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-xl text-xs transition-colors"
           >
             <ExternalLink size={14} />
-            <span>Open Client View</span>
+            <span>Open Client Portal</span>
           </button>
         </div>
       </div>

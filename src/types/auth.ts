@@ -73,6 +73,11 @@ export interface AuthContextType {
     password: string;
     studioName: string;
   }) => Promise<SignUpResult>;
+  signUpClient: (params: {
+    fullName: string;
+    email: string;
+    password: string;
+  }) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
   refreshProfileAndOrg: () => Promise<void>;
   signInAsDemo: (email?: string, name?: string, role?: OrganizationRole) => void;

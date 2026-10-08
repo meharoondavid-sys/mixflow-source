@@ -20,7 +20,6 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  GitCompareArrows,
   ListMusic
 } from 'lucide-react';
 import { ProjectFileVersionRecord, ProjectFeedbackRecord } from '../../types/versionFeedback';
@@ -29,17 +28,18 @@ import { getSupabase } from '../../lib/supabase';
 interface ClientAudioReviewViewProps {
   projectId: string;
   songs: Array<{ id: string; title: string; track_number: number }>;
+  initialSongId?: string | null;
+  publicReviewToken?: string | null;
+  onProjectApproved?: () => void;
 }
 
-export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs }) => {
-  const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id || null);
+export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ projectId, songs, initialSongId, publicReviewToken, onProjectApproved }) => {
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSongId && songs.some((song) => song.id === initialSongId) ? initialSongId : (songs[0]?.id || null));
   const [versions, setVersions] = useState<ProjectFileVersionRecord[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [feedbackList, setFeedbackList] = useState<ProjectFeedbackRecord[]>([]);
   const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'open' | 'resolved'>('all');
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
-  const [comparePlaying, setComparePlaying] = useState<'a' | 'b' | null>(null);
   
   // Audio Playback State
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -52,7 +52,10 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
   // Feedback Form State
   const [commentText, setCommentText] = useState<string>('');
+  const [showFeedbackForm, setShowFeedbackForm] = useState<boolean>(false);
   const [feedbackTimestamp, setFeedbackTimestamp] = useState<number>(0);
+  const [feedbackMinutes, setFeedbackMinutes] = useState<number>(0);
+  const [feedbackSeconds, setFeedbackSeconds] = useState<number>(0);
   const [submittingFeedback, setSubmittingFeedback] = useState<boolean>(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [projectStatus, setProjectStatus] = useState<string | null>(null);
@@ -69,8 +72,13 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   };
 
   // Load project status for the review workflow.
+  // Preview/demo projects are intentionally self-contained and must not depend on Supabase.
   useEffect(() => {
     let isCancelled = false;
+    if (projectId.startsWith('preview-')) {
+      setProjectStatus('in_review');
+      return () => { isCancelled = true; };
+    }
     const loadProjectStatus = async () => {
       const sb = getSupabase();
       const { data, error } = await sb.from('projects').select('status').eq('id', projectId).single();
@@ -85,6 +93,26 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     let isCancelled = false;
     const loadVersions = async () => {
       try {
+        if (publicReviewToken && selectedSongId) {
+          const publicRes = await fetch(`/api/public-review/${projectId}/${selectedSongId}?token=${encodeURIComponent(publicReviewToken)}`);
+          if (!publicRes.ok) return;
+          const publicData = await publicRes.json();
+          if (!isCancelled) {
+            const vList: ProjectFileVersionRecord[] = publicData.versions || [];
+            setVersions(vList);
+            setFeedbackList(publicData.feedback || []);
+            setProjectStatus(publicData.project?.status || 'in_review');
+            if (vList.length > 0) {
+              const latest = vList[vList.length - 1];
+              if (!selectedVersionId || !vList.some(v => v.id === selectedVersionId)) setSelectedVersionId(latest.id);
+            } else {
+              setSelectedVersionId(null);
+              setPlaybackUrl(null);
+            }
+          }
+          return;
+        }
+
         const token = await getAuthToken();
         if (!token) return;
 
@@ -121,7 +149,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     return () => {
       isCancelled = true;
     };
-  }, [projectId, selectedSongId]);
+  }, [projectId, selectedSongId, publicReviewToken]);
 
   // 2. Fetch feedback and audio stream when selectedVersionId changes
   useEffect(() => {
@@ -135,11 +163,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
     const loadFeedback = async () => {
       try {
-        const token = await getAuthToken();
-        if (!token) return;
-
-        const res = await fetch(`/api/projects/${projectId}/feedback?versionId=${selectedVersionId}`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const token = publicReviewToken ? null : await getAuthToken();
+        const feedbackUrl = publicReviewToken
+          ? `/api/public-review/${projectId}/${selectedSongId}/feedback?token=${encodeURIComponent(publicReviewToken)}`
+          : `/api/projects/${projectId}/feedback?versionId=${selectedVersionId}`;
+        const res = await fetch(feedbackUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (res.ok && !isCancelled) {
           const data = await res.json();
@@ -154,11 +183,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
       setLoadingAudio(true);
       setAudioError(null);
       try {
-        const token = await getAuthToken();
-        if (!token) return;
-
-        const res = await fetch(`/api/projects/${projectId}/versions/${selectedVersionId}/playback-url`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const token = publicReviewToken ? null : await getAuthToken();
+        const playbackUrlEndpoint = publicReviewToken
+          ? `/api/public-review/${projectId}/${selectedSongId}/versions/${selectedVersionId}/playback-url?token=${encodeURIComponent(publicReviewToken)}`
+          : `/api/projects/${projectId}/versions/${selectedVersionId}/playback-url`;
+        const res = await fetch(playbackUrlEndpoint, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 
         if (!res.ok) {
@@ -191,7 +221,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
       setIsPlaying(false);
       setCurrentTime(0);
     };
-  }, [projectId, selectedVersionId]);
+  }, [projectId, selectedVersionId, publicReviewToken]);
 
   // Format seconds to mm:ss
   const formatTime = (secs: number) => {
@@ -207,30 +237,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     if (mb >= 1) return `${mb.toFixed(1)} MB`;
     const kb = bytes / 1024;
     return `${kb.toFixed(1)} KB`;
-  };
-
-  const playVersionDirect = async (versionId: string) => {
-    try {
-      const token = await getAuthToken();
-      if (!token) throw new Error('Authentication required.');
-      const res = await fetch(`/api/projects/${projectId}/versions/${versionId}/playback-url`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to load comparison audio.');
-      const data = await res.json();
-      if (audioRef.current) {
-        audioRef.current.src = data.signedUrl;
-        await audioRef.current.play();
-        setIsPlaying(true);
-        setPlaybackUrl(data.signedUrl);
-        setCurrentTime(0);
-      }
-    } catch (err: any) {
-      setAudioError(err.message || 'Comparison playback error.');
-    }
-  };
-
-  const handlePlayPause = () => {
+  };  const handlePlayPause = () => {
     if (!audioRef.current || !playbackUrl) return;
     if (isPlaying) {
       audioRef.current.pause();
@@ -248,9 +255,22 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     setCurrentTime(newTime);
   };
 
-  const handleCaptureCurrentTime = () => {
-    setFeedbackTimestamp(Math.round(currentTime * 100) / 100);
+  const syncTimestampFields = (secs: number) => {
+    const safe = Math.max(0, Math.floor(secs));
+    setFeedbackTimestamp(safe);
+    setFeedbackMinutes(Math.floor(safe / 60));
+    setFeedbackSeconds(safe % 60);
   };
+
+  const updateTimestampFields = (minutes: number, seconds: number) => {
+    const safeMinutes = Math.max(0, Math.floor(Number(minutes) || 0));
+    const safeSeconds = Math.min(59, Math.max(0, Math.floor(Number(seconds) || 0)));
+    setFeedbackMinutes(safeMinutes);
+    setFeedbackSeconds(safeSeconds);
+    setFeedbackTimestamp((safeMinutes * 60) + safeSeconds);
+  };
+
+  const handleCaptureCurrentTime = () => syncTimestampFields(currentTime);
 
   const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,13 +280,15 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     setFeedbackError(null);
 
     try {
-      const token = await getAuthToken();
-      if (!token) throw new Error('Authentication required.');
-
-      const res = await fetch(`/api/projects/${projectId}/feedback`, {
+      const token = publicReviewToken ? null : await getAuthToken();
+      if (!publicReviewToken && !token) throw new Error('Authentication required.');
+      const feedbackEndpoint = publicReviewToken
+        ? `/api/public-review/${projectId}/${selectedSongId}/feedback?token=${encodeURIComponent(publicReviewToken)}`
+        : `/api/projects/${projectId}/feedback`;
+      const res = await fetch(feedbackEndpoint, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -295,7 +317,6 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const selectedSong = songs.find((s) => s.id === selectedSongId);
   const selectedVersion = versions.find((v) => v.id === selectedVersionId);
   const latestVersion = versions.length > 0 ? versions[versions.length - 1] : null;
-  const compareVersion = versions.find((v) => v.id === compareVersionId) || null;
   const changeCount = selectedVersion?.feedback_count || 0;
   const jumpToNextChange = () => {
     const next = feedbackList.find((fb) => Number(fb.timestamp_seconds) > currentTime && fb.status !== 'resolved');
@@ -304,6 +325,24 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   const isSelectedLatest = selectedVersion?.id === latestVersion?.id;
 
   const canTakeReviewAction = projectStatus === 'in_review' && isSelectedLatest && !!selectedVersionId;
+
+  const handleDeleteFeedback = async (feedbackId: string) => {
+    if (!window.confirm('Remove this feedback? This cannot be undone.')) return;
+    try {
+      const token = publicReviewToken;
+      if (!token || !selectedSongId) return;
+      const response = await fetch(`/api/public-review/${projectId}/${selectedSongId}/feedback/${feedbackId}?token=${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to remove feedback.');
+      }
+      setFeedbackList((items) => items.filter((item) => item.id !== feedbackId));
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : 'Failed to remove feedback.');
+    }
+  };
 
   const handleReviewAction = async (action: 'revision_requested' | 'mix_approved') => {
     if (!selectedVersionId || !canTakeReviewAction || reviewActionLoading) return;
@@ -314,16 +353,27 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
     setReviewActionLoading(true);
     setReviewActionError(null);
     try {
-      const sb = getSupabase();
-      const { error } = await sb.rpc('client_review_action', {
-        p_project_id: projectId,
-        p_version_id: selectedVersionId,
-        p_action: action,
-        p_note: null,
-      });
-      if (error) throw error;
+      if (publicReviewToken) {
+        const res = await fetch(`/api/public-review/${projectId}/${selectedSongId}/action?token=${encodeURIComponent(publicReviewToken)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ versionId: selectedVersionId, action }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Unable to update the review status.');
+      } else {
+        const sb = getSupabase();
+        const { error } = await sb.rpc('client_review_action', {
+          p_project_id: projectId,
+          p_version_id: selectedVersionId,
+          p_action: action,
+          p_note: null,
+        });
+        if (error) throw error;
+      }
       setProjectStatus(action === 'revision_requested' ? 'needs_revision' : 'approved');
       setReviewAction(action);
+      if (action === 'mix_approved' && publicReviewToken) onProjectApproved?.();
       setVersions(prev => prev.map(v => v.id === selectedVersionId
         ? { ...v, status: action === 'revision_requested' ? 'revision_requested' : 'approved' }
         : v
@@ -336,31 +386,32 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
   };
 
   // Filter feedback
-  const filteredFeedback = feedbackList.filter((fb) => {
+  const versionFeedback = feedbackList.filter((fb) => fb.version_id === selectedVersionId);
+
+  const filteredFeedback = versionFeedback.filter((fb) => {
     if (feedbackFilter === 'open') return fb.status === 'open';
     if (feedbackFilter === 'resolved') return fb.status === 'resolved';
     return true;
   });
 
-  const openCount = feedbackList.filter((f) => f.status === 'open').length;
-  const resolvedCount = feedbackList.filter((f) => f.status === 'resolved').length;
+  const openCount = versionFeedback.filter((f) => f.status === 'open').length;
+  const resolvedCount = versionFeedback.filter((f) => f.status === 'resolved').length;
 
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl p-6 sm:p-8 space-y-6">
+    <div className="bg-[#080b10] border border-[#1c2430] rounded-[28px] p-3 sm:p-6 space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/60 pb-5">
         <div>
-          <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            <Music size={18} className="text-emerald-400" />
-            <span>Mix Review</span>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            {songs.find((song) => song.id === selectedSongId)?.title || 'Mix Review'}
           </h2>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Review the latest mix, jump between requested changes, compare passes, and leave timestamped notes.
+          <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+            Mix V{selectedVersion?.version_number || '—'} <span className="mx-1.5 text-zinc-700">•</span> {selectedVersion?.created_at ? new Date(selectedVersion.created_at).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }) : 'Review'}
           </p>
         </div>
 
         {/* Review status and sign-off actions */}
-        <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-4 space-y-3">
+        <div className="bg-[#10141b] border border-[#202938] rounded-2xl p-3 sm:p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Project status</p>
@@ -368,10 +419,10 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             </div>
             {canTakeReviewAction && (
               <div className="flex flex-col sm:flex-row gap-2">
-                <button type="button" onClick={() => handleReviewAction('revision_requested')} disabled={reviewActionLoading} className="px-4 py-2 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 disabled:opacity-50 text-orange-300 text-xs font-bold transition cursor-pointer">
+                <button type="button" onClick={() => handleReviewAction('revision_requested')} disabled={reviewActionLoading} className="px-3 sm:px-4 py-2 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 disabled:opacity-50 text-orange-300 text-xs font-bold transition cursor-pointer">
                   {reviewActionLoading && reviewAction === 'revision_requested' ? 'Sending...' : 'Request Revision'}
                 </button>
-                <button type="button" onClick={() => handleReviewAction('mix_approved')} disabled={reviewActionLoading || openCount > 0} title={openCount > 0 ? 'Resolve all open feedback before approving' : 'Approve this mix as final'} className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-xs font-bold transition cursor-pointer">
+                <button type="button" onClick={() => handleReviewAction('mix_approved')} disabled={reviewActionLoading || openCount > 0} title={openCount > 0 ? 'Resolve all open feedback before approving' : 'Approve this mix as final'} className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-black text-xs font-bold transition cursor-pointer">
                   {reviewActionLoading && reviewAction === 'mix_approved' ? 'Approving...' : 'Approve Mix'}
                 </button>
               </div>
@@ -381,7 +432,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
           {projectStatus === 'in_review' && openCount > 0 && <p className="text-[11px] text-zinc-500">Approve is locked until all open feedback on this version is resolved.</p>}
           {reviewActionError && <p className="text-[11px] text-red-400 bg-red-950/30 border border-red-900/50 rounded-xl px-3 py-2">{reviewActionError}</p>}
           {reviewAction === 'revision_requested' && <p className="text-[11px] text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 py-2">Revision requested. Your engineer has been notified.</p>}
-          {reviewAction === 'mix_approved' && <p className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">Mix approved. The engineer can now prepare the final delivery.</p>}
+          {reviewAction === 'mix_approved' && <p className="text-[11px] text-blue-300 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2">Mix approved. The engineer can now prepare the final delivery.</p>}
         </div>
 
         {/* Song Selector */}
@@ -391,7 +442,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             <select
               value={selectedSongId || ''}
               onChange={(e) => setSelectedSongId(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 text-xs text-zinc-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-emerald-500 cursor-pointer"
+              className="bg-[#171d27] border border-zinc-700 text-xs text-zinc-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               {songs.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -412,42 +463,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Versions Bar & Status */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="text-xs text-zinc-400 font-medium shrink-0">Mix Pass:</span>
-              {versions.map((ver) => {
-                const isSelected = ver.id === selectedVersionId;
-                const isLatest = ver.id === latestVersion?.id;
-                return (
-                  <button
-                    key={ver.id}
-                    onClick={() => setSelectedVersionId(ver.id)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                      isSelected
-                        ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
-                        : 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60'
-                    }`}
-                  >
-                    <span>V{ver.version_number}</span>
-                    {isLatest && (
-                      <span className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase ${isSelected ? 'bg-black/20 text-black' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                        Latest
-                      </span>
-                    )}
-                    {ver.feedback_count ? (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-black/20 text-black' : 'bg-zinc-700 text-zinc-300'}`}>
-                        {ver.feedback_count}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
 
+          {/* Version History */}
+          <div className="flex justify-end">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="self-start sm:self-auto px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer transition shrink-0"
+              className="px-3 py-1.5 bg-[#171d27] hover:bg-[#171d27] text-zinc-300 border border-zinc-700/60 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer transition shrink-0"
             >
               <History size={13} className="text-zinc-400" />
               <span>Version History ({versions.length})</span>
@@ -475,10 +496,10 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
           {/* Version History Table / Drawer */}
           {showHistory && (
-            <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl p-5 space-y-4 shadow-inner">
+            <div className="bg-zinc-950/80 border border-zinc-800 rounded-[22px] p-4 sm:p-4 sm:p-5 space-y-4 shadow-inner">
               <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
                 <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                  <History size={15} className="text-emerald-400" />
+                  <History size={15} className="text-blue-400" />
                   <span>Mix Version History & Revision Log</span>
                 </h3>
                 <span className="text-[11px] text-zinc-500">All passes are securely archived</span>
@@ -506,7 +527,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                           <td className="py-2.5 font-bold text-white flex items-center gap-1.5">
                             <span>V{ver.version_number}</span>
                             {isLatest && (
-                              <span className="text-[9px] font-mono px-1.5 py-0.2 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/30">
+                              <span className="text-[9px] font-mono px-1.5 py-0.2 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/30">
                                 LATEST
                               </span>
                             )}
@@ -536,8 +557,8 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                               onClick={() => setSelectedVersionId(ver.id)}
                               className={`px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition ${
                                 isCurrent
-                                  ? 'bg-emerald-500 text-black font-semibold'
-                                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                                  ? 'bg-blue-500 text-black font-semibold'
+                                  : 'bg-[#171d27] hover:bg-zinc-700 text-zinc-300'
                               }`}
                             >
                               {isCurrent ? 'Listening' : 'Listen'}
@@ -552,38 +573,31 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             </div>
           )}
 
-          {/* Review summary + quick actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-              <div className="text-[11px] uppercase tracking-wider text-emerald-400 font-bold">Current review</div>
-              <div className="mt-1 text-xl font-extrabold text-white">V{selectedVersion?.version_number}</div>
-              <div className="text-xs text-zinc-500 mt-1">{isSelectedLatest ? 'Latest version' : 'Earlier version'}</div>
+          {/* Clean version switcher */}
+          <div className="bg-[#111720] border border-[#222b38] rounded-[20px] p-1.5 shadow-inner">
+            <div className="flex items-stretch overflow-x-auto">
+              {versions.map((ver) => {
+                const isSelected = ver.id === selectedVersionId;
+                const isLatest = ver.id === latestVersion?.id;
+                return (
+                  <button
+                    key={ver.id}
+                    type="button"
+                    onClick={() => setSelectedVersionId(ver.id)}
+                    className={`flex-1 min-w-[92px] px-4 py-2.5 rounded-xl transition cursor-pointer text-center ${isSelected ? 'bg-[#4f7cff] text-white shadow-lg shadow-blue-500/20' : 'text-zinc-400 hover:text-white hover:bg-[#171d27]'}`}
+                  >
+                    <div className="text-xs font-extrabold">V{ver.version_number}</div>
+                    <div className={`text-[9px] mt-0.5 font-medium ${isSelected ? 'text-white/75' : 'text-zinc-600'}`}>
+                      {isSelected ? 'Current' : (isLatest ? 'Latest' : ver.version_number === 1 ? 'Previous' : 'Previous')}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            <button onClick={jumpToNextChange} disabled={!feedbackList.some(f => Number(f.timestamp_seconds) > currentTime && f.status !== 'resolved')} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-left hover:border-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed">
-              <div className="flex items-center gap-2 text-sm font-bold text-white"><ListMusic size={16} className="text-emerald-400"/>Jump to next change</div>
-              <div className="text-xs text-zinc-500 mt-1">{openCount} open note{openCount === 1 ? '' : 's'} on this version</div>
-            </button>
-            <button onClick={() => setShowHistory(true)} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-left hover:border-zinc-700">
-              <div className="flex items-center gap-2 text-sm font-bold text-white"><History size={16} className="text-emerald-400"/>Revision history</div>
-              <div className="text-xs text-zinc-500 mt-1">{versions.length} saved pass{versions.length === 1 ? '' : 'es'}</div>
-            </button>
           </div>
 
-          {compareVersion && selectedVersion && compareVersion.id !== selectedVersion.id && (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-bold text-white"><GitCompareArrows size={16} className="text-emerald-400"/>A/B compare</div>
-                <div className="text-xs text-zinc-500 mt-1">A = V{selectedVersion.version_number} · B = V{compareVersion.version_number}</div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setComparePlaying('a'); playVersionDirect(selectedVersion.id); }} className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white">Play A</button>
-                <button onClick={() => { setComparePlaying('b'); playVersionDirect(compareVersion.id); }} className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold">Play B</button>
-              </div>
-            </div>
-          )}
-
           {/* Audio Player Card */}
-          <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-2xl p-5 space-y-4 shadow-inner">
+          <div className="bg-[#10141b] border border-[#202938] rounded-2xl p-5 space-y-4 shadow-inner">
             <audio
               ref={audioRef}
               src={playbackUrl || undefined}
@@ -598,14 +612,9 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 }
               }}
               onEnded={() => setIsPlaying(false)}
+
             />
 
-              <div className="flex items-center gap-2">
-                <select value={compareVersionId || ''} onChange={e => setCompareVersionId(e.target.value || null)} className="bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-1.5 text-[11px] text-zinc-300">
-                  <option value="">A/B compare…</option>
-                  {versions.filter(v => v.id !== selectedVersionId).map(v => <option key={v.id} value={v.id}>Compare V{v.version_number}</option>)}
-                </select>
-              </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -614,14 +623,14 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                   </p>
                   <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
                     isSelectedLatest
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                      : 'bg-[#171d27] text-zinc-400 border border-zinc-700'
                   }`}>
                     {isSelectedLatest ? 'Latest Version' : `Version ${selectedVersion?.version_number}`}
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                  V{selectedVersion?.version_number} • Secure Stream
+                  V{selectedVersion?.version_number}
                   {selectedVersion?.notes && <span className="text-zinc-400 ml-2">“{selectedVersion.notes}”</span>}
                 </p>
               </div>
@@ -630,7 +639,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => handleSeek(0)}
-                  className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer border border-zinc-800"
+                  className="p-2 rounded-xl bg-zinc-900 hover:bg-[#171d27] text-zinc-400 hover:text-white transition cursor-pointer border border-zinc-800"
                   title="Rewind to start"
                 >
                   <RotateCcw size={14} />
@@ -639,7 +648,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 <button
                   onClick={handlePlayPause}
                   disabled={loadingAudio || !playbackUrl}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-xs flex items-center gap-1.5 transition shadow-lg shadow-emerald-500/20 cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-[#4f7cff] hover:bg-[#5c86ff] disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-lg shadow-blue-500/20 rounded-full cursor-pointer"
                 >
                   {loadingAudio ? (
                     <>
@@ -666,7 +675,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                       setIsMuted(!isMuted);
                     }
                   }}
-                  className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer border border-zinc-800"
+                  className="p-2 rounded-xl bg-zinc-900 hover:bg-[#171d27] text-zinc-400 hover:text-white transition cursor-pointer border border-zinc-800"
                   title={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
@@ -674,23 +683,49 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
               </div>
             </div>
 
-            {/* Scrubber / Progress Bar */}
-            <div className="space-y-1.5">
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                step={0.1}
-                value={currentTime}
-                onChange={(e) => handleSeek(Number(e.target.value))}
-                className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <div className="flex justify-between text-[11px] font-mono text-zinc-500">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
+            {/* Interactive waveform timeline with timestamped feedback markers */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-zinc-500"><span className="font-medium text-zinc-300">Track timeline</span><span>Tap waveform to jump</span></div>
+              <div role="slider" aria-label="Audio timeline" aria-valuemin={0} aria-valuemax={duration || 0} aria-valuenow={currentTime} aria-valuetext={formatTime(currentTime) + ' of ' + formatTime(duration)} tabIndex={0}
+                onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); if (duration > 0 && rect.width > 0) handleSeek(Math.max(0, Math.min(duration, ((e.clientX - rect.left) / rect.width) * duration))); }}
+                onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); handleSeek(Math.min(duration, currentTime + 5)); } if (e.key === 'ArrowLeft') { e.preventDefault(); handleSeek(Math.max(0, currentTime - 5)); } if (e.key === 'Home') { e.preventDefault(); handleSeek(0); } if (e.key === 'End') { e.preventDefault(); handleSeek(duration); } }}
+                className="relative flex h-20 sm:h-28 items-center gap-px overflow-hidden rounded-xl border border-zinc-800 bg-[#111720] px-2 sm:px-3 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                {Array.from({ length: 64 }, (_, index) => { const height = 16 + Math.abs(Math.sin(index * 12.9898) * Math.cos(index * 0.37)) * 76; const played = duration > 0 && index <= (currentTime / duration) * 63; return <div key={index} className={`flex-1 rounded-full ${played ? 'bg-[#4f7cff]' : 'bg-[#343b49]'}`} style={{ height: `${height}%`, minWidth: '1px' }} />; })}
+                {duration > 0 && feedbackList.map((item) => <button key={item.id} type="button" title={`Feedback at ${formatTime(Number(item.timestamp_seconds))}`} onClick={(e) => { e.stopPropagation(); handleSeek(Number(item.timestamp_seconds)); }} className={`absolute bottom-1 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-zinc-950 ${item.status === 'resolved' ? 'bg-[#8b93a3]' : 'bg-[#4f7cff]'}`} style={{ left: `${(Number(item.timestamp_seconds) / duration) * 100}%` }} />)}
+                <div className="absolute inset-y-0 w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)] pointer-events-none" style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />
+              </div>
+              <div className="flex justify-between text-[11px] font-mono text-zinc-500"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
+            </div>
+            {/* Compact review context under the waveform */}
+            <div className="space-y-3">
+              {versionFeedback.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {versionFeedback.slice().sort((a, b) => Number(a.timestamp_seconds) - Number(b.timestamp_seconds)).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSeek(Number(item.timestamp_seconds))}
+                      className="shrink-0 min-w-[132px] rounded-[14px] border border-[#202938] bg-[#111720] px-3 py-2.5 text-left hover:border-zinc-700 transition cursor-pointer"
+                    >
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-blue-400">
+                        <span>{formatTime(Number(item.timestamp_seconds))}</span>
+                        <span className="text-zinc-700">•</span>
+                        <span className="text-zinc-500 truncate">{item.author_name}</span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-zinc-300 truncate">{item.comment}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="rounded-[14px] border border-[#202938] bg-[#0d1118] px-3.5 py-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-blue-400">Changes in V{selectedVersion?.version_number}</span>
+                  {selectedVersion?.id === latestVersion?.id && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">Latest</span>}
+                </div>
+                <p className="text-xs leading-relaxed text-zinc-400">{selectedVersion?.notes?.trim() || 'No change notes were added for this version.'}</p>
               </div>
             </div>
-
             {audioError && (
               <p className="text-xs text-red-400 bg-red-950/40 p-2.5 rounded-xl border border-red-900/50">
                 {audioError}
@@ -698,26 +733,24 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
             )}
           </div>
 
-          {comparePlaying && compareVersion && (
-            <div className="text-xs text-zinc-400 border border-zinc-800 rounded-xl px-3 py-2 bg-zinc-950/50">
-              Compare mode selected: {comparePlaying === 'a' ? 'A' : 'B'} = V{comparePlaying === 'a' ? selectedVersion?.version_number : compareVersion.version_number}. Use the version selector above to switch the primary player.
-              <button onClick={() => setComparePlaying(null)} className="ml-2 text-emerald-400 hover:underline">Close</button>
-            </div>
-          )}
-
           {/* Feedback Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+          <div className="space-y-4 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div><h3 className="text-xl sm:text-[21px] font-bold text-white">Feedback & Comments</h3><p className="text-xs text-zinc-500 mt-1">Each note is pinned to a moment in the audio.</p></div>
+              <button type="button" onClick={() => { syncTimestampFields(currentTime); setShowFeedbackForm((open) => !open); }} className="inline-flex items-center justify-center gap-2 rounded-full bg-transparent px-2 py-2 text-sm font-semibold text-blue-400 hover:text-blue-300 transition cursor-pointer"><MessageSquarePlus size={14} /> {showFeedbackForm ? 'Cancel comment' : '+ Add comment'}</button>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Feedback Input Form */}
-            <div className="lg:col-span-5 bg-zinc-950/40 border border-zinc-800/80 rounded-2xl p-5 space-y-4">
+            {showFeedbackForm && <div className="lg:col-span-5 bg-[#0d1118] border border-[#1c2430] rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <MessageSquarePlus size={14} className="text-emerald-400" />
+                  <MessageSquarePlus size={14} className="text-blue-400" />
                   <span>Leave Note on Mix v{selectedVersion?.version_number}</span>
                 </h3>
                 <button
                   type="button"
                   onClick={handleCaptureCurrentTime}
-                  className="text-[10px] font-mono text-emerald-400 hover:underline cursor-pointer"
+                  className="text-[10px] font-mono text-blue-400 hover:underline cursor-pointer"
                   title="Set timestamp to current playback position"
                 >
                   Sync to Player ({formatTime(currentTime)})
@@ -726,19 +759,12 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
 
               <form onSubmit={handleSubmitFeedback} className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] text-zinc-400 font-medium">Timestamp (seconds):</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">Timestamp:</label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={feedbackTimestamp}
-                      onChange={(e) => setFeedbackTimestamp(Math.max(0, Number(e.target.value)))}
-                      className="w-28 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-emerald-500"
-                    />
-                    <span className="text-xs font-mono text-zinc-400">
-                      = {formatTime(feedbackTimestamp)}
-                    </span>
+                    <input type="number" min="0" step="1" value={feedbackMinutes} onChange={(e) => updateTimestampFields(Number(e.target.value), feedbackSeconds)} className="w-16 px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white text-center focus:outline-none focus:border-blue-500" aria-label="Minutes" />
+                    <span className="text-[10px] text-zinc-500">min</span>
+                    <input type="number" min="0" max="59" step="1" value={feedbackSeconds} onChange={(e) => updateTimestampFields(feedbackMinutes, Number(e.target.value))} className="w-16 px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-mono text-white text-center focus:outline-none focus:border-blue-500" aria-label="Seconds" />
+                    <span className="text-[10px] text-zinc-500">sec</span>
                   </div>
                 </div>
 
@@ -750,11 +776,11 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                     onChange={(e) => {
                       setCommentText(e.target.value);
                       if (feedbackTimestamp === 0 && currentTime > 0) {
-                        setFeedbackTimestamp(Math.round(currentTime * 100) / 100);
+                        syncTimestampFields(currentTime);
                       }
                     }}
                     placeholder="e.g. Vocal feels slightly buried behind the lead guitar here..."
-                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition resize-none"
+                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition resize-none"
                   />
                 </div>
 
@@ -767,7 +793,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 <button
                   type="submit"
                   disabled={submittingFeedback || !commentText.trim()}
-                  className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/10"
+                  className="w-full py-2.5 px-4 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-black font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-blue-500/10"
                 >
                   {submittingFeedback ? (
                     <>
@@ -782,10 +808,10 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                   )}
                 </button>
               </form>
-            </div>
+            </div>}
 
             {/* Version Feedback List */}
-            <div className="lg:col-span-7 bg-zinc-950/40 border border-zinc-800/80 rounded-2xl p-5 space-y-3">
+            <div className={`${showFeedbackForm ? 'lg:col-span-7' : 'lg:col-span-12'} bg-[#0d1118] border border-[#1c2430] rounded-2xl p-4 sm:p-5 space-y-3`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-800/60">
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Clock size={14} className="text-zinc-400" />
@@ -798,7 +824,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                     onClick={() => setFeedbackFilter('all')}
                     className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
                       feedbackFilter === 'all'
-                        ? 'bg-zinc-800 text-white font-bold'
+                        ? 'bg-[#171d27] text-white font-bold'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
@@ -808,8 +834,8 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                     onClick={() => setFeedbackFilter('open')}
                     className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
                       feedbackFilter === 'open'
-                        ? 'bg-emerald-500 text-black font-bold'
-                        : 'text-emerald-400 hover:text-emerald-300'
+                        ? 'bg-blue-500 text-black font-bold'
+                        : 'text-blue-400 hover:text-blue-300'
                     }`}
                   >
                     Open ({openCount})
@@ -818,7 +844,7 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                     onClick={() => setFeedbackFilter('resolved')}
                     className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
                       feedbackFilter === 'resolved'
-                        ? 'bg-zinc-800 text-white font-bold'
+                        ? 'bg-[#171d27] text-white font-bold'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
@@ -840,14 +866,14 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                   {filteredFeedback.map((item) => (
                     <div
                       key={item.id}
-                      className="bg-zinc-900/60 border border-zinc-800/70 rounded-xl p-3 text-xs space-y-1.5 hover:border-zinc-700 transition"
+                      className="bg-[#111720] border border-zinc-800/70 rounded-xl p-3 text-xs space-y-1.5 hover:border-zinc-700 transition"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleSeek(Number(item.timestamp_seconds))}
-                            className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] font-semibold hover:bg-emerald-500/20 transition cursor-pointer flex items-center gap-1"
+                            className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono text-[11px] font-semibold hover:bg-blue-500/20 transition cursor-pointer flex items-center gap-1"
                             title="Jump audio player to this timestamp"
                           >
                             <Play size={10} />
@@ -859,13 +885,21 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                         <span
                           className={`text-[10px] font-mono px-2 py-0.5 rounded-full uppercase font-semibold flex items-center gap-1 ${
                             item.status === 'resolved'
-                              ? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              ? 'bg-[#171d27] text-zinc-400 border border-zinc-700'
+                              : 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
                           }`}
                         >
                           {item.status === 'resolved' && <CheckCircle2 size={10} />}
                           <span>{item.status}</span>
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFeedback(item.id)}
+                          className="text-[10px] text-zinc-500 hover:text-red-400 transition cursor-pointer"
+                          title="Remove this feedback"
+                        >
+                          Remove
+                        </button>
                       </div>
 
                       <p className="text-zinc-300 leading-relaxed text-xs">{item.comment}</p>
@@ -880,7 +914,30 @@ export const ClientAudioReviewView: React.FC<ClientAudioReviewViewProps> = ({ pr
                 </div>
               )}
             </div>
+            </div>
           </div>
+
+          {/* Client sign-off actions */}
+          {canTakeReviewAction && (
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => handleReviewAction('revision_requested')}
+                disabled={reviewActionLoading}
+                className="flex-1 rounded-full border border-[#2a3342] bg-[#151b24] px-5 py-3 text-sm font-semibold text-zinc-200 hover:bg-[#1b2330] disabled:opacity-50 transition cursor-pointer"
+              >
+                {reviewActionLoading && reviewAction === 'revision_requested' ? 'Sending...' : 'Request Revision'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleReviewAction('mix_approved')}
+                disabled={reviewActionLoading || openCount > 0}
+                className="flex-1 rounded-full bg-[#4f7cff] hover:bg-[#5c86ff] px-5 py-3 text-sm font-bold text-white disabled:opacity-50 transition cursor-pointer shadow-lg shadow-blue-500/20"
+              >
+                {reviewActionLoading && reviewAction === 'mix_approved' ? 'Approving...' : 'Approve Mix'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

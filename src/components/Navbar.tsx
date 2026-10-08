@@ -11,14 +11,12 @@ import {
   X,
   ChevronDown,
   UserCheck,
-  Download,
   LogOut,
   User,
   Building,
   Users
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { downloadProjectSourceZip } from '../utils/exportSourceZip';
 import { useNotifications } from '../hooks/useNotifications';
 
 export const Navbar: React.FC = () => {
@@ -35,7 +33,6 @@ export const Navbar: React.FC = () => {
     notifications,
     markNotificationsRead,
     engineer,
-    openClientReview,
     projects,
     user,
     profile,
@@ -284,28 +281,19 @@ export const Navbar: React.FC = () => {
                 )}
               </div>
 
-              {/* Download Source Code Button */}
-              <button
-                onClick={downloadProjectSourceZip}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-medium border border-zinc-800 transition-colors"
-                title="Download full project source code as .ZIP"
-              >
-                <Download size={14} className="text-emerald-400" />
-                <span className="hidden md:inline">Download Code</span>
-              </button>
 
-              {/* View as Client Quick Switcher */}
-              <button
-                onClick={() => {
-                  const targetToken = activeProject?.shareToken || currentClientProject.shareToken;
-                  openClientReview(targetToken);
-                }}
-                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-medium border border-zinc-800 transition-colors"
-                title="Preview what your client sees"
-              >
-                <UserCheck size={14} className="text-emerald-400" />
-                <span>Test Client Link</span>
-              </button>
+
+              {/* Client Portal */}
+              {activeProject && (
+                <button
+                  onClick={() => window.open(`${window.location.origin}${window.location.pathname}#/client/project/${activeProject.id}`, '_blank', 'noopener,noreferrer')}
+                  className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-medium border border-zinc-800 transition-colors"
+                  title="Open the real client portal for this project"
+                >
+                  <ExternalLink size={14} className="text-emerald-400" />
+                  <span>Client Portal</span>
+                </button>
+              )}
 
               {/* New Project Action */}
               <button

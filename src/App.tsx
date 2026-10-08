@@ -1,13 +1,16 @@
-import React, { useEffect, lazy, Suspense } from 'react';
-import { Download, Disc3 } from 'lucide-react';
+import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { Disc3 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectsProvider } from './context/ProjectsContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { CollaboratorPortal } from './components/collaborator/CollaboratorPortal';
-import { downloadProjectSourceZip } from './utils/exportSourceZip';
 import { MobileProjectFileUploadView } from './components/engineer/MobileProjectFileUploadView';
+import { ClientAudioReviewView } from './components/client/ClientAudioReviewView';
+import { PublicReviewView } from './components/client/PublicReviewView';
+import { ClientPortalPreview } from './components/client/ClientPortalPreview';
+import { ClientAuthScreen } from './components/client/ClientAuthScreen';
 
 // Modals
 const DashboardView = lazy(() => import('./components/engineer/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -43,21 +46,30 @@ const AppContent: React.FC = () => {
     projects
   } = useApp();
 
+  const isClientAccountEntry = new URLSearchParams(window.location.search).get('client') === '1';
   const isPasswordRecovery = window.location.hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('reset') === '1';
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
-
   const collaboratorMatch = window.location.hash.match(/^#\/collaborator\/invite\/([^/]+)$/);
   const collaboratorToken = collaboratorMatch?.[1] || null;
 
   const isStudioStaff = Boolean(
     user && organization && role && ['owner', 'admin', 'engineer', 'producer', 'finance'].includes(role)
   );
+  const isClientAccount = Boolean(
+    user && user.user_metadata?.account_type === 'client' && !organization
+  );
 
   // FIX 2: Studio users with valid organization membership (owner, admin, engineer, producer, finance)
   // are routed to the Engineer/Studio Console after authentication if the browser remained on #/client.
   // Public review links (#/review/...) and genuine client users are strictly preserved.
   useEffect(() => {
-    if (!loading && user && isStudioStaff) {
+    if (!loading && isClientAccountEntry && !isPasswordRecovery && !isPreviewMode) {
+      const hash = window.location.hash;
+      if (!hash.startsWith('#/review/')) setCurrentView('client');
+      return;
+    }
+
+    if (!loading && user && isStudioStaff && !isClientAccountEntry && !isPreviewMode) {
       const hash = window.location.hash;
       // Do NOT interfere with public review links (#/review/...)
       if (hash.startsWith('#/review/')) {
@@ -68,13 +80,16 @@ const AppContent: React.FC = () => {
       // or empty hash, ensure they are routed to the Engineer/Studio Console after authentication.
       if (
         currentView === 'client' &&
-        (hash === '#/client' || hash === '#client' || hash === '#/client/projects' || hash === '')
+        !hash.startsWith('#/client/') &&
+        hash !== '#/client' &&
+        hash !== '#client' &&
+        (hash === '' || hash === '#engineer' || hash === '#/engineer' || hash === '#dashboard')
       ) {
         setCurrentView('engineer');
         setEngineerTab('projects');
       }
     }
-  }, [user, loading, isStudioStaff, currentView, setCurrentView, setEngineerTab]);
+  }, [user, loading, isStudioStaff, isClientAccount, isClientAccountEntry, isPasswordRecovery, currentView, setCurrentView, setEngineerTab]);
 
   // Listen to hash change for direct share links and tab routing
   useEffect(() => {
@@ -87,17 +102,20 @@ const AppContent: React.FC = () => {
           setActiveClientToken(token);
           setCurrentView('client');
         }
-      } else if (hash.startsWith('#/client') || hash.startsWith('#client')) {
-        // Studio staff should always stay in the Engineer Console when using
-        // normal client routes. Client review links remain explicitly supported
-        // through #/review/... above.
-        if (isStudioStaff) {
-          setCurrentView('engineer');
-          setActiveProjectId(null);
-          setEngineerTab('projects');
-        } else {
-          setCurrentView('client');
-        }
+      } else if (hash === '#clients' || hash === '#/clients') {
+        // The engineer Clients page must be handled before the generic
+        // #/client... route below because "#/clients" starts with "#/client".
+        setCurrentView('engineer');
+        setActiveProjectId(null);
+        setEngineerTab('clients');
+      } else if (hash.startsWith('#/review/') || hash.startsWith('#review/')) {
+        setCurrentView('client');
+        setActiveProjectId(null);
+      } else if (hash.startsWith('#/client/') || hash.startsWith('#client/')) {
+        // Real Client Portal routes must stay in the Client Portal, even if
+        // the browser currently has a studio staff session. This is important
+        // for song-specific review links sent to clients.
+        setCurrentView('client');
       } else if (hash.startsWith('#/project/') || hash.startsWith('#project/')) {
         const pId = hash.replace(/^#\/?project\//, '');
         if (pId) {
@@ -105,10 +123,6 @@ const AppContent: React.FC = () => {
           setEngineerTab('projects');
           setActiveProjectId(pId);
         }
-      } else if (hash === '#clients' || hash === '#/clients') {
-        setCurrentView('engineer');
-        setActiveProjectId(null);
-        setEngineerTab('clients');
       } else if (hash === '#invoices' || hash === '#/invoices') {
         setCurrentView('engineer');
         setActiveProjectId(null);
@@ -122,14 +136,15 @@ const AppContent: React.FC = () => {
         setActiveProjectId(null);
         setEngineerTab('projects');
       } else if (hash === '#engineer' || hash === '#/engineer' || hash === '#dashboard' || hash === '') {
-        setCurrentView('engineer');
+        if (isClientAccount) setCurrentView('client');
+        else setCurrentView('engineer');
       }
     };
 
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId]);
+  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId, isClientAccount]);
 
   // Auth should never leave the user on an indefinite blank/loading screen.
   if (loading) {
@@ -148,6 +163,12 @@ const AppContent: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Dedicated client account entry. Client accounts use email + password and
+  // never enter studio organization provisioning.
+  if (isClientAccountEntry && !user && !isPasswordRecovery) {
+    return <ClientAuthScreen />;
   }
 
   // Provisioning state: User authenticated but studio organization is currently being created
@@ -206,8 +227,10 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-emerald-500 selection:text-black pb-16">
       {/* 1. Client View: Either share review link or authenticated Client Portal */}
       {currentView === 'client' ? (
-        window.location.hash.startsWith('#/review/') ? (
-          <ClientReviewView />
+        isPreviewMode ? (
+          <ClientAudioReviewView projectId="preview-demo-project" songs={[{ id: 'preview-demo-song', title: 'Demo Song — Client Review Preview', track_number: 1 }]} />
+        ) : window.location.hash.startsWith('#/review/') ? (
+          <ClientPortal />
         ) : !user || isPasswordRecovery ? (
           <AuthScreen />
         ) : (
@@ -243,65 +266,7 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {/* Developer preview controls stay out of the normal client/studio experience. */}
-      {isPreviewMode && <aside aria-label="Preview switcher" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-900/95 backdrop-blur-md border border-zinc-800 rounded-full px-2 py-1.5 shadow-2xl flex items-center gap-1.5 text-xs">
-        <span className="text-[11px] text-zinc-500 font-mono px-2 hidden sm:inline">Preview Mode:</span>
-        <button
-          onClick={() => {
-            window.location.hash = '';
-            setCurrentView('engineer');
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
-            currentView === 'engineer'
-              ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <span>🎧 Engineer Console</span>
-        </button>
 
-        <button
-          onClick={() => {
-            window.location.hash = '#/client/projects';
-            setCurrentView('client');
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
-            currentView === 'client' && !window.location.hash.startsWith('#/review/')
-              ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <span>👤 Client Portal</span>
-        </button>
-
-        <button
-          onClick={() => {
-            const token = projects[0]?.shareToken || 'rev-neon-77a8';
-            setActiveClientToken(token);
-            window.location.hash = `#/review/${token}`;
-            setCurrentView('client');
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
-            currentView === 'client' && window.location.hash.startsWith('#/review/')
-              ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <span>📱 Client Review Link</span>
-        </button>
-
-        <span className="w-[1px] h-3.5 bg-zinc-800 hidden sm:inline" />
-
-        <button
-          onClick={downloadProjectSourceZip}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-          title="Download complete project source files as a .zip"
-        >
-          <Download size={13} className="text-emerald-400" />
-          <span className="hidden sm:inline">Download Code (.ZIP)</span>
-          <span className="sm:hidden">ZIP</span>
-        </button>
-      </aside>}
 
       {/* Global Modals */}
       <NewProjectModal />
@@ -314,6 +279,16 @@ const AppContent: React.FC = () => {
 };
 
 export default function App() {
+  // UI-only client portal preview for product/design testing. It never touches auth or project data.
+  if (new URLSearchParams(window.location.search).get('preview') === 'client') {
+    return <ClientPortalPreview />;
+  }
+
+  // Public review links are intentionally outside AuthProvider: clients do not need a MixFlow account.
+  if (/^#\/?review\//.test(window.location.hash)) {
+    return <PublicReviewView />;
+  }
+
   // Keep the mobile upload route outside the main studio providers.
   // This minimizes memory while Android's native file picker is open.
   const mobileUploadMatch = window.location.hash.match(/^#\/mobile-upload\/([^?]+)/);
