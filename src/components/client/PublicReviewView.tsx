@@ -1,18 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { getSupabase } from '../../lib/supabase';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { ClientAudioReviewView } from './ClientAudioReviewView';
 
 export const PublicReviewView: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showAccountOffer, setShowAccountOffer] = useState(false);
-  const [showAccountSignup, setShowAccountSignup] = useState(false);
-  const [accountEmail, setAccountEmail] = useState('');
-  const [accountLoading, setAccountLoading] = useState(false);
-  const [accountSent, setAccountSent] = useState(false);
-  const [accountError, setAccountError] = useState<string | null>(null);
 
   const hash = window.location.hash;
   const match = hash.match(/^#\/?review\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\?token=([^&]+)/);
@@ -43,52 +35,11 @@ export const PublicReviewView: React.FC = () => {
         if (!cancelled) setError(err.message || 'Unable to load this review.');
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [projectId, songId, token]);
 
-  const handleSaveProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const email = accountEmail.trim().toLowerCase();
-    if (!email) {
-      setAccountError('Please enter your email address.');
-      return;
-    }
-
-    setAccountLoading(true);
-    setAccountError(null);
-
-    try {
-      localStorage.setItem('mixflow_client_claim', JSON.stringify({
-        projectId,
-        songId,
-        token,
-        createdAt: Date.now(),
-      }));
-
-      const { error: otpError } = await getSupabase().auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: 'https://mixflow-client-preview.onrender.com/?client_auth=1',
-          data: {
-            account_type: 'client',
-          },
-        },
-      });
-
-      if (otpError) {
-        localStorage.removeItem('mixflow_client_claim');
-        throw otpError;
-      }
-
-      setAccountSent(true);
-    } catch (err: any) {
-      setAccountError(err?.message || 'We could not send the secure sign-in link. Please try again.');
-    } finally {
-      setAccountLoading(false);
-    }
+  const openClientAccount = () => {
+    window.location.href = '/?client=1';
   };
 
   return (
@@ -123,105 +74,37 @@ export const PublicReviewView: React.FC = () => {
           </div>
         ) : (
           <>
-            {!showAccountOffer && (
-              <div className="max-w-7xl mx-auto mb-5 flex justify-end">
-                {!showAccountSignup ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAccountSignup(true)}
-                    className="text-xs text-zinc-400 hover:text-white transition inline-flex items-center gap-1.5"
-                  >
-                    Want to keep your projects in one place? <span className="text-blue-400 font-semibold">Create account</span>
-                    <ArrowRight size={13} />
-                  </button>
-                ) : (
-                  <form onSubmit={handleSaveProject} className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3">
-                    {accountSent ? (
-                      <p className="text-xs text-emerald-300">Check your email — your secure MixFlow sign-in link is on its way.</p>
-                    ) : (
-                      <>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                            <input type="email" required value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="Your email" className="w-full pl-8 pr-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500" />
-                          </div>
-                          <button type="submit" disabled={accountLoading} className="px-3.5 py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-950 font-bold text-xs rounded-lg transition">
-                            {accountLoading ? 'Sending…' : 'Create account'}
-                          </button>
-                        </div>
-                        {accountError && <p className="text-[11px] text-red-400 mt-2">{accountError}</p>}
-                        <p className="text-[10px] text-zinc-600 mt-2">Free account · no password required</p>
-                      </>
-                    )}
-                  </form>
-                )}
-              </div>
-            )}
-
             <ClientAudioReviewView
               projectId={data.project.id}
               songs={[data.song]}
               initialSongId={data.song.id}
               publicReviewToken={token}
-              onProjectApproved={() => {
-                setShowAccountSignup(false);
-                setShowAccountOffer(true);
-              }}
             />
-          {showAccountOffer && (
-            <section className="max-w-2xl mx-auto mt-6 bg-zinc-900 border border-emerald-500/25 rounded-3xl p-6 sm:p-8 shadow-2xl">
+
+            <section className="max-w-2xl mx-auto mt-6 rounded-3xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8 shadow-2xl">
               <div className="flex items-start gap-4">
                 <div className="w-11 h-11 shrink-0 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                   <CheckCircle2 size={22} />
                 </div>
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-white">Your project is approved.</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-white">Want to keep your projects in one place?</h2>
                   <p className="text-sm text-zinc-400 mt-1 leading-relaxed">
-                    Save it to your MixFlow Library so you can find this project again — and keep future projects from any engineer in one place.
+                    Create your free MixFlow client account. After signing in, your engineer can give you a unique Project Code to add this and future projects to My Music.
                   </p>
                 </div>
               </div>
-
-              {accountSent ? (
-                <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
-                  <p className="text-sm font-semibold text-emerald-300">Check your email.</p>
-                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                    We sent you a secure MixFlow sign-in link. Open it and we'll save this project to your library automatically.
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleSaveProject} className="mt-6 space-y-3">
-                  <label className="block text-xs font-semibold text-zinc-300">Email address</label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-1">
-                      <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                      <input
-                        type="email"
-                        required
-                        value={accountEmail}
-                        onChange={(e) => setAccountEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        className="w-full pl-9 pr-3 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={accountLoading}
-                      className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition"
-                    >
-                      <span>{accountLoading ? 'Sending…' : 'Save My Project'}</span>
-                      {!accountLoading && <ArrowRight size={15} />}
-                    </button>
-                  </div>
-                  {accountError && <p className="text-xs text-red-400">{accountError}</p>}
-                  <p className="text-[11px] text-zinc-500">
-                    No password to remember. We'll send a secure sign-in link to your email.
-                  </p>
-                </form>
-              )}
+              <button
+                type="button"
+                onClick={openClientAccount}
+                className="mt-6 w-full sm:w-auto px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm rounded-xl inline-flex items-center justify-center gap-2 transition"
+              >
+                Create Client Account
+                <ArrowRight size={15} />
+              </button>
+              <p className="mt-3 text-[11px] text-zinc-500">
+                Email + password. No Magic Link required.
+              </p>
             </section>
-          )}
-
           </>
         )}
       </main>
