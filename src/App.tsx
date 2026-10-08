@@ -49,7 +49,7 @@ const AppContent: React.FC = () => {
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
   const isClientAuthCallback = new URLSearchParams(window.location.search).get('client_auth') === '1';
   const clientClaimInFlight = useRef(false);
-  const [clientLibraryAccess, setClientLibraryAccess] = useState(false);
+  const [clientLibraryAccess, setClientLibraryAccess] = useState(false);\n  const [clientClaimError, setClientClaimError] = useState<string | null>(null);
   const [hasPendingClientClaim, setHasPendingClientClaim] = useState(() => {
     try {
       const raw = window.localStorage.getItem('mixflow_client_claim');
@@ -80,7 +80,7 @@ const AppContent: React.FC = () => {
       try {
         const { data: sessionData } = await getSupabase().auth.getSession();
         const accessToken = sessionData.session?.access_token;
-        if (!accessToken) return;
+        if (!accessToken) throw new Error('Your secure sign-in session is not ready yet. Please reopen the Magic Link.');
 
         const response = await fetch(`/api/public-review/${claim!.projectId}/${claim!.songId}/claim-account?token=${encodeURIComponent(claim!.token)}`, {
           method: 'POST',
@@ -221,7 +221,7 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Provisioning state: User authenticated but studio organization is currently being created
+  // While a client Magic Link is being processed, never let the normal studio routing win.\n  // This is especially important when the email belongs to an existing engineer account.\n  if (user && isClientAuthCallback && hasPendingClientClaim && !clientLibraryAccess) {\n    return (\n      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-zinc-100 font-sans">\n        <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900/80 p-7 text-center shadow-2xl">\n          <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">\n            <Disc3 size={24} className={clientClaimError ? '' : 'animate-spin'} />\n          </div>\n          <h1 className="text-base font-semibold text-white">{clientClaimError ? 'We couldn’t save your project' : 'Saving your project'}</h1>\n          <p className="mt-2 text-xs text-zinc-400 leading-relaxed">{clientClaimError || 'Your secure sign-in is complete. We’re linking this project to your MixFlow Library.'}</p>\n          {clientClaimError && (\n            <button onClick={() => window.location.reload()} className="mt-5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition">Try again</button>\n          )}\n        </div>\n      </div>\n    );\n  }\n\n  // Provisioning state: User authenticated but studio organization is currently being created
   if (user && !organization && provisioning) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-zinc-100 font-sans">
