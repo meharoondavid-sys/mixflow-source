@@ -63,13 +63,13 @@ const AppContent: React.FC = () => {
   // are routed to the Engineer/Studio Console after authentication if the browser remained on #/client.
   // Public review links (#/review/...) and genuine client users are strictly preserved.
   useEffect(() => {
-    if (!loading && user && isClientAccount && !isPreviewMode) {
+    if (!loading && isClientAccountEntry && !isPasswordRecovery && !isPreviewMode) {
       const hash = window.location.hash;
       if (!hash.startsWith('#/review/')) setCurrentView('client');
       return;
     }
 
-    if (!loading && user && isStudioStaff && !isPreviewMode) {
+    if (!loading && user && isStudioStaff && !isClientAccountEntry && !isPreviewMode) {
       const hash = window.location.hash;
       // Do NOT interfere with public review links (#/review/...)
       if (hash.startsWith('#/review/')) {
@@ -89,7 +89,7 @@ const AppContent: React.FC = () => {
         setEngineerTab('projects');
       }
     }
-  }, [user, loading, isStudioStaff, isClientAccount, currentView, setCurrentView, setEngineerTab]);
+  }, [user, loading, isStudioStaff, isClientAccount, isClientAccountEntry, isPasswordRecovery, currentView, setCurrentView, setEngineerTab]);
 
   // Listen to hash change for direct share links and tab routing
   useEffect(() => {
@@ -167,7 +167,7 @@ const AppContent: React.FC = () => {
 
   // Dedicated client account entry. Client accounts use email + password and
   // never enter studio organization provisioning.
-  if (isClientAccountEntry && !user && !isPasswordRecovery) {
+  if (isClientAccountEntry && !isClientAccount && !isPasswordRecovery) {
     return <ClientAuthScreen />;
   }
 
