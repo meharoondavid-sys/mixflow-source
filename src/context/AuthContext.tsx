@@ -677,7 +677,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatePassword,
         setAnonKeyManually,
         signIn,
-        signInClient,
         signUp,
         signUpClient,
         signOut,
