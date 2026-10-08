@@ -29,17 +29,22 @@ export const ClientAuthScreen: React.FC = () => {
     }
 
     setBusy(true);
-    const result = mode === 'signup'
-      ? await signUpClient({ fullName, email, password })
-      : await signIn(email, password);
-    setBusy(false);
+    try {
+      const result = mode === 'signup'
+        ? await signUpClient({ fullName, email, password })
+        : await signIn(email, password);
 
-    if (result.error) {
-      setError(result.error.message);
-    } else {
-      // Client entry should always land in the authenticated client portal.
-      // Keep the client query flag so App preserves the client-only route after refresh.
-      window.location.hash = '#/client';
+      if (result.error) {
+        setError(result.error.message);
+      } else {
+        // Client entry should always land in the authenticated client portal.
+        // Keep the client query flag so App preserves the client-only route after refresh.
+        window.location.hash = '#/client';
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.');
+    } finally {
+      setBusy(false);
     }
   };
 
