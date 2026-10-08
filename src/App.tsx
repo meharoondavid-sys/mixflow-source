@@ -96,11 +96,20 @@ const AppContent: React.FC = () => {
   const isStudioStaff = Boolean(
     user && organization && role && ['owner', 'admin', 'engineer', 'producer', 'finance'].includes(role)
   );
+  const isClientAccount = Boolean(
+    user && user.user_metadata?.account_type === 'client' && !organization
+  );
 
   // FIX 2: Studio users with valid organization membership (owner, admin, engineer, producer, finance)
   // are routed to the Engineer/Studio Console after authentication if the browser remained on #/client.
   // Public review links (#/review/...) and genuine client users are strictly preserved.
   useEffect(() => {
+    if (!loading && user && isClientAccount && !isPreviewMode) {
+      const hash = window.location.hash;
+      if (!hash.startsWith('#/review/')) setCurrentView('client');
+      return;
+    }
+
     if (!loading && user && isStudioStaff && !isPreviewMode) {
       const hash = window.location.hash;
       // Do NOT interfere with public review links (#/review/...)
@@ -165,14 +174,15 @@ const AppContent: React.FC = () => {
         setActiveProjectId(null);
         setEngineerTab('projects');
       } else if (hash === '#engineer' || hash === '#/engineer' || hash === '#dashboard' || hash === '') {
-        setCurrentView('engineer');
+        if (isClientAccount) setCurrentView('client');
+        else setCurrentView('engineer');
       }
     };
 
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId]);
+  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId, isClientAccount]);
 
   // Auth should never leave the user on an indefinite blank/loading screen.
   if (loading) {
