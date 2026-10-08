@@ -593,3 +593,137 @@ export async function handleConfirmClientFileUpload(
 
   return { status: 201, body: { file: fileRecord } };
 }
+
+/**
+ * POST /api/client-portal/projects/claim
+ * Claims a project for the authenticated client using its unique project code.
+ */
+export async function handleClaimClientProject(
+  ctx: ClientPortalHandlerContext & { body?: { projectCode?: string } }
+): Promise<{ status: number; body: any }> {
+  const authRes = await authenticateCaller(ctx);
+  if (authRes.errorStatus) {
+    return { status: authRes.errorStatus, body: authRes.errorBody };
+  }
+
+  const callerUser = authRes.callerUser!;
+  if (callerUser.user_metadata?.account_type !== 'client') {
+    return { status: 403, body: { error: 'Only client accounts can add projects by code.' } };
+  }
+
+  const projectCode = String(ctx.body?.projectCode || '').trim().toUpperCase();
+  if (!/^MF-[A-Z0-9]{12}$/.test(projectCode)) {
+    return { status: 400, body: { error: 'Enter a valid MixFlow project code.' } };
+  }
+
+  const clientFactory = ctx.createClientFn || createClient;
+  const adminClient = clientFactory(ctx.supabaseUrl, ctx.supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: project, error: projectError } = await adminClient
+    .from('projects')
+    .select('id, organization_id, client_id, name, project_code')
+    .eq('project_code', projectCode)
+    .maybeSingle();
+
+  if (projectError) {
+    console.error('[MixFlow Client Portal] Project code lookup failed:', projectError);
+    return { status: 500, body: { error: 'Unable to verify that project code right now.' } };
+  }
+
+  if (!project) {
+    return { status: 404, body: { error: 'That project code is not valid. Please check the code and try again.' } };
+  }
+
+  // Never allow a project already assigned to a different authenticated client
+  // to be silently taken over.
+  const { data: currentProjectClient } = await adminClient
+    .from('clients')
+    .select('id, user_id, organization_id, full_name, email')
+    .eq('id', project.client_id)
+    .maybeSingle();
+
+  if (currentProjectClient?.user_id && currentProjectClient.user_id !== callerUser.id) {
+    return { status: 409, body: { error: 'This project is already assigned to another MixFlow client account.' } };
+  }
+
+  // Prefer an existing client record for this account in the project's organization.
+  // Otherwise, securely attach the project's existing unassigned client record.
+  let targetClient: any = null;
+
+  const { data: existingClient } = await adminClient
+    .from('clients')
+    .select('*')
+    .eq('organization_id', project.organization_id)
+    .eq('user_id', callerUser.id)
+    .maybeSingle();
+
+  if (existingClient) {
+    targetClient = existingClient;
+  } else if (currentProjectClient && !currentProjectClient.user_id) {
+    const { data: linkedClient, error: linkError } = await adminClient
+      .from('clients')
+      .update({
+        user_id: callerUser.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', currentProjectClient.id)
+      .is('user_id', null)
+      .select('*')
+      .maybeSingle();
+
+    if (linkError || !linkedClient) {
+      return { status: 409, body: { error: 'This project could not be linked to your client account. Please try again.' } };
+    }
+    targetClient = linkedClient;
+  }
+
+  if (!targetClient) {
+    // This is a defensive fallback for legacy projects whose client row cannot
+    // be linked directly. Create a client record only within this organization.
+    const { data: createdClient, error: createClientError } = await adminClient
+      .from('clients')
+      .insert({
+        organization_id: project.organization_id,
+        full_name: callerUser.user_metadata?.full_name || callerUser.email || 'MixFlow Client',
+        email: callerUser.email || null,
+        user_id: callerUser.id,
+      })
+      .select('*')
+      .single();
+
+    if (createClientError || !createdClient) {
+      console.error('[MixFlow Client Portal] Client record creation failed:', createClientError);
+      return { status: 500, body: { error: 'Your account could not be linked to this project.' } };
+    }
+    targetClient = createdClient;
+  }
+
+  if (project.client_id !== targetClient.id) {
+    const { error: projectUpdateError } = await adminClient
+      .from('projects')
+      .update({
+        client_id: targetClient.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', project.id);
+
+    if (projectUpdateError) {
+      console.error('[MixFlow Client Portal] Project claim update failed:', projectUpdateError);
+      return { status: 500, body: { error: 'The project was verified but could not be added to your library.' } };
+    }
+  }
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      project: {
+        id: project.id,
+        name: project.name,
+        project_code: project.project_code,
+      },
+    },
+  };
+}
