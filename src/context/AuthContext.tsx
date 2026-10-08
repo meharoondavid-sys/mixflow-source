@@ -363,8 +363,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sign In with email & password
   const signIn = async (email: string, password: string): Promise<{ error: Error | null; diagnostic?: AuthDiagnosticError | null }> => {
-    const supabase = getSupabase();
     try {
+      const supabase = getSupabase();
       const request = supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
