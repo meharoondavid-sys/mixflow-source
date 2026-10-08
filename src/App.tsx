@@ -167,7 +167,7 @@ const AppContent: React.FC = () => {
 
   // Dedicated client account entry. Client accounts use email + password and
   // never enter studio organization provisioning.
-  if (isClientAccountEntry && !isClientAccount && !isPasswordRecovery) {
+  if (isClientAccountEntry && !user && !isPasswordRecovery) {
     return <ClientAuthScreen />;
   }
 
