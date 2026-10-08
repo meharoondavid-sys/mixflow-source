@@ -19,6 +19,7 @@ export interface ProjectRecord {
   id: string;
   organization_id: string;
   client_id: string;
+  project_code: string;
   name: string;
   project_type: ProjectType;
   description: string | null;
