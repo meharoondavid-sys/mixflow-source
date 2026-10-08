@@ -67,7 +67,6 @@ export interface AuthContextType {
   setPendingConfirmationEmail: (email: string | null) => void;
   setAnonKeyManually: (key: string) => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; diagnostic?: AuthDiagnosticError | null }>;
-  signInClient: (email: string, password: string) => Promise<{ error: Error | null; diagnostic?: AuthDiagnosticError | null }>;
   signUp: (params: {
     fullName: string;
     email: string;
