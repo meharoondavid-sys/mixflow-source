@@ -86,7 +86,7 @@ export async function handleCreatePublicReviewLink(ctx: PublicReviewContext & { 
 export async function handleClaimClientAccount(ctx: PublicReviewContext & { authHeader?: string }) {
   if (!verify(ctx)) return { status: 401, body: { error: 'Invalid or expired review link.' } };
 
-  const bearer = ctx.authHeader?.replace(/^Bearer\\s+/, '').trim();
+  const bearer = ctx.authHeader?.replace(/^Bearer\s+/, '').trim();
   if (!bearer) return { status: 401, body: { error: 'Authentication required.' } };
 
   const authClient = createClient(ctx.supabaseUrl, ctx.supabaseAnonKey, {
