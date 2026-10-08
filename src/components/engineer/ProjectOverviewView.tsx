@@ -26,7 +26,8 @@ import {
   Tag,
   Users,
   Check,
-  Link2
+  Link2,
+  Copy
 } from 'lucide-react';
 import { useProjects } from '../../hooks/useProjects';
 import { useServices } from '../../hooks/useServices';
@@ -1114,6 +1115,31 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
             ) : (
               <div className="text-xs text-zinc-500">No client details available.</div>
             )}
+          </div>
+
+          {/* Client Project Code */}
+          <div className="bg-zinc-900 border border-emerald-500/15 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 font-mono">Client Project Code</h3>
+                <p className="mt-1 text-[11px] text-zinc-600">Share this code with the client so they can add this project to My Music.</p>
+              </div>
+              <Tag size={15} className="text-emerald-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2.5 font-mono text-sm font-semibold tracking-wider text-emerald-300">
+                {project.project_code || 'Generating…'}
+              </div>
+              <button
+                type="button"
+                disabled={!project.project_code}
+                onClick={() => project.project_code && navigator.clipboard?.writeText(project.project_code)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-emerald-500/30 hover:text-emerald-300 disabled:opacity-40"
+                title="Copy project code"
+              >
+                <Copy size={15} />
+              </button>
+            </div>
           </div>
 
           {/* Record Metadata */}
