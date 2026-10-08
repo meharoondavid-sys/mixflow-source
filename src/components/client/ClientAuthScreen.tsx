@@ -34,7 +34,13 @@ export const ClientAuthScreen: React.FC = () => {
       : await signIn(email, password);
     setBusy(false);
 
-    if (result.error) setError(result.error.message);
+    if (result.error) {
+      setError(result.error.message);
+    } else {
+      // Client entry should always land in the authenticated client portal.
+      // Keep the client query flag so App preserves the client-only route after refresh.
+      window.location.hash = '#/client';
+    }
   };
 
   if (pendingConfirmationEmail) {
