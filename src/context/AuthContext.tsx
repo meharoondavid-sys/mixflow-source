@@ -408,6 +408,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInClient = async (email: string, password: string): Promise<{ error: Error | null; diagnostic?: AuthDiagnosticError | null }> => {
+    const result = await signIn(email, password);
+    if (result.error) return result;
+
+    const supabase = getSupabase();
+    const { data: currentUser } = await supabase.auth.getUser();
+    if (currentUser.user?.user_metadata?.account_type !== 'client') {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setOrganization(null);
+      setRole(null);
+      setProvisioning(false);
+      return {
+        error: new Error('This is a studio engineer account. Please use Create Account to make a separate MixFlow client account.'),
+      };
+    }
+
+    return { error: null, diagnostic: null };
+  };
+
   const resetPassword = async (email: string): Promise<{ error: Error | null }> => {
     const supabase = getSupabase();
     try {
@@ -677,6 +699,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatePassword,
         setAnonKeyManually,
         signIn,
+        signInClient,
         signUp,
         signUpClient,
         signOut,
