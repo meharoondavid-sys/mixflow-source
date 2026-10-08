@@ -69,6 +69,31 @@ export function useClientPortal() {
     }
   }, [getAuthToken]);
 
+  // Add a project to My Music using the unique code supplied by an engineer.
+  const claimProject = useCallback(async (projectCode: string) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return { error: new Error('Please sign in to your client account first.') };
+
+      const res = await fetch('/api/client-portal/projects/claim', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ projectCode: projectCode.trim().toUpperCase() }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'We could not add this project.');
+
+      await fetchPortalData();
+      return { error: null as Error | null, project: data.project };
+    } catch (err: any) {
+      return { error: new Error(err?.message || 'We could not add this project.') };
+    }
+  }, [getAuthToken, fetchPortalData]);
+
   // Fetch specific project details (including songs and files)
   const fetchProjectDetail = useCallback(async (projectId: string) => {
     setProjectLoading(true);
@@ -249,6 +274,7 @@ export function useClientPortal() {
     isUploading,
     uploadFileToStudio,
     refreshPortal: fetchPortalData,
+    claimProject,
     fetchProjectDetail,
     setActiveProject,
     downloadFile,
