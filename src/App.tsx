@@ -11,7 +11,6 @@ import { ClientAudioReviewView } from './components/client/ClientAudioReviewView
 import { PublicReviewView } from './components/client/PublicReviewView';
 import { ClientPortalPreview } from './components/client/ClientPortalPreview';
 import { ClientAuthScreen } from './components/client/ClientAuthScreen';
-import { getSupabase } from './lib/supabase';
 
 // Modals
 const DashboardView = lazy(() => import('./components/engineer/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -50,65 +49,6 @@ const AppContent: React.FC = () => {
   const isClientAccountEntry = new URLSearchParams(window.location.search).get('client') === '1';
   const isPasswordRecovery = window.location.hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('reset') === '1';
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
-  const isClientAuthCallback = new URLSearchParams(window.location.search).get('client_auth') === '1';
-  const clientClaimInFlight = useRef(false);
-  const [clientLibraryAccess, setClientLibraryAccess] = useState(false);
-  const [clientClaimError, setClientClaimError] = useState<string | null>(null);
-  const [hasPendingClientClaim, setHasPendingClientClaim] = useState(() => {
-    try {
-      const raw = window.localStorage.getItem('mixflow_client_claim');
-      if (!raw) return false;
-      const claim = JSON.parse(raw) as { createdAt?: number };
-      return typeof claim.createdAt === 'number' && Date.now() - claim.createdAt <= 24 * 60 * 60 * 1000;
-    } catch {
-      return false;
-    }
-  });
-
-  // Complete the post-approval client account claim after a passwordless sign-in.
-  useEffect(() => {
-    if (!user || clientClaimInFlight.current) return;
-    const raw = window.localStorage.getItem('mixflow_client_claim');
-    if (!raw) return;
-
-    let claim: { projectId: string; songId: string; token: string; createdAt: number } | null = null;
-    try { claim = JSON.parse(raw); } catch { window.localStorage.removeItem('mixflow_client_claim'); }
-    if (!claim || Date.now() - claim.createdAt > 24 * 60 * 60 * 1000) {
-      window.localStorage.removeItem('mixflow_client_claim');
-      setHasPendingClientClaim(false);
-      return;
-    }
-
-    clientClaimInFlight.current = true;
-    void (async () => {
-      try {
-        const { data: sessionData } = await getSupabase().auth.getSession();
-        const accessToken = sessionData.session?.access_token;
-        if (!accessToken) throw new Error('Your secure sign-in session is not ready yet. Please reopen the Magic Link.');
-
-        const response = await fetch(`/api/public-review/${claim!.projectId}/${claim!.songId}/claim-account?token=${encodeURIComponent(claim!.token)}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: claim!.token }),
-        });
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.error || 'Unable to save your project.');
-        }
-
-        window.localStorage.removeItem('mixflow_client_claim');
-        setHasPendingClientClaim(false);
-        setClientLibraryAccess(true);
-        window.location.hash = '#/client/';
-      } catch (err) {
-        console.error('[MixFlow] Client account claim failed:', err);
-        // Keep the claim context so a transient auth/network error can be retried.
-      } finally {
-        clientClaimInFlight.current = false;
-      }
-    })();
-  }, [user]);
-
   const collaboratorMatch = window.location.hash.match(/^#\/collaborator\/invite\/([^/]+)$/);
   const collaboratorToken = collaboratorMatch?.[1] || null;
 
@@ -123,13 +63,13 @@ const AppContent: React.FC = () => {
   // are routed to the Engineer/Studio Console after authentication if the browser remained on #/client.
   // Public review links (#/review/...) and genuine client users are strictly preserved.
   useEffect(() => {
-    if (!loading && user && (isClientAccount || hasPendingClientClaim || clientLibraryAccess || isClientAuthCallback) && !isPreviewMode) {
+    if (!loading && user && isClientAccount && !isPreviewMode) {
       const hash = window.location.hash;
       if (!hash.startsWith('#/review/')) setCurrentView('client');
       return;
     }
 
-    if (!loading && user && isStudioStaff && !isPreviewMode && !clientLibraryAccess) {
+    if (!loading && user && isStudioStaff && !isPreviewMode) {
       const hash = window.location.hash;
       // Do NOT interfere with public review links (#/review/...)
       if (hash.startsWith('#/review/')) {
@@ -149,7 +89,7 @@ const AppContent: React.FC = () => {
         setEngineerTab('projects');
       }
     }
-  }, [user, loading, isStudioStaff, isClientAccount, hasPendingClientClaim, currentView, setCurrentView, setEngineerTab, clientLibraryAccess, isClientAuthCallback]);
+  }, [user, loading, isStudioStaff, isClientAccount, currentView, setCurrentView, setEngineerTab]);
 
   // Listen to hash change for direct share links and tab routing
   useEffect(() => {
@@ -196,7 +136,7 @@ const AppContent: React.FC = () => {
         setActiveProjectId(null);
         setEngineerTab('projects');
       } else if (hash === '#engineer' || hash === '#/engineer' || hash === '#dashboard' || hash === '') {
-        if (isClientAccount || hasPendingClientClaim || clientLibraryAccess || isClientAuthCallback) setCurrentView('client');
+        if (isClientAccount) setCurrentView('client');
         else setCurrentView('engineer');
       }
     };
@@ -231,7 +171,7 @@ const AppContent: React.FC = () => {
     return <ClientAuthScreen />;
   }
 
-  // While a client Magic Link is being processed, never let the normal studio routing win.\n  // This is especially important when the email belongs to an existing engineer account.\n  if (user && isClientAuthCallback && hasPendingClientClaim && !clientLibraryAccess) {\n    return (\n      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-zinc-100 font-sans">\n        <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900/80 p-7 text-center shadow-2xl">\n          <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">\n            <Disc3 size={24} className={clientClaimError ? '' : 'animate-spin'} />\n          </div>\n          <h1 className="text-base font-semibold text-white">{clientClaimError ? 'We couldn’t save your project' : 'Saving your project'}</h1>\n          <p className="mt-2 text-xs text-zinc-400 leading-relaxed">{clientClaimError || 'Your secure sign-in is complete. We’re linking this project to your MixFlow Library.'}</p>\n          {clientClaimError && (\n            <button onClick={() => window.location.reload()} className="mt-5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition">Try again</button>\n          )}\n        </div>\n      </div>\n    );\n  }\n\n  // Provisioning state: User authenticated but studio organization is currently being created
+  // Provisioning state: User authenticated but studio organization is currently being created
   if (user && !organization && provisioning) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-zinc-100 font-sans">
