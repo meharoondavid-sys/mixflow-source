@@ -20,6 +20,7 @@ import {
   handleGetClientPortalFileDownloadUrl,
   handleCreateClientFileUploadUrl,
   handleConfirmClientFileUpload,
+  handleClaimClientProject,
 } from './src/server/clientPortalHandler.js';
 import {
   handleListProjectVersions,
@@ -413,6 +414,23 @@ async function startServer() {
   // ==========================================
   // Client Portal Foundation Endpoints (Step 10)
   // ==========================================
+
+  // Claim a project into the authenticated client's My Music library using its unique project code.
+  app.post('/api/client-portal/projects/claim', async (req, res) => {
+    try {
+      const result = await handleClaimClientProject({
+        authHeader: req.headers.authorization,
+        body: req.body,
+        supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '',
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      console.error('[MixFlow Server] Client project claim error:', err);
+      return res.status(500).json({ error: 'Failed to add project to your MixFlow library.' });
+    }
+  });
 
   // 1. GET /api/client-portal/me - Get Client Identity
   app.get('/api/client-portal/me', async (req, res) => {
