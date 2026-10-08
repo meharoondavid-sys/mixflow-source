@@ -49,6 +49,16 @@ const AppContent: React.FC = () => {
   const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
   const clientClaimInFlight = useRef(false);
   const [clientLibraryAccess, setClientLibraryAccess] = useState(false);
+  const [hasPendingClientClaim, setHasPendingClientClaim] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem('mixflow_client_claim');
+      if (!raw) return false;
+      const claim = JSON.parse(raw) as { createdAt?: number };
+      return typeof claim.createdAt === 'number' && Date.now() - claim.createdAt <= 24 * 60 * 60 * 1000;
+    } catch {
+      return false;
+    }
+  });
 
   // Complete the post-approval client account claim after a passwordless sign-in.
   useEffect(() => {
@@ -60,6 +70,7 @@ const AppContent: React.FC = () => {
     try { claim = JSON.parse(raw); } catch { window.localStorage.removeItem('mixflow_client_claim'); }
     if (!claim || Date.now() - claim.createdAt > 24 * 60 * 60 * 1000) {
       window.localStorage.removeItem('mixflow_client_claim');
+      setHasPendingClientClaim(false);
       return;
     }
 
@@ -81,11 +92,12 @@ const AppContent: React.FC = () => {
         }
 
         window.localStorage.removeItem('mixflow_client_claim');
+        setHasPendingClientClaim(false);
         setClientLibraryAccess(true);
         window.location.hash = '#/client/projects';
       } catch (err) {
         console.error('[MixFlow] Client account claim failed:', err);
-        window.localStorage.removeItem('mixflow_client_claim');
+        // Keep the claim context so a transient auth/network error can be retried.
       } finally {
         clientClaimInFlight.current = false;
       }
@@ -106,7 +118,7 @@ const AppContent: React.FC = () => {
   // are routed to the Engineer/Studio Console after authentication if the browser remained on #/client.
   // Public review links (#/review/...) and genuine client users are strictly preserved.
   useEffect(() => {
-    if (!loading && user && isClientAccount && !isPreviewMode) {
+    if (!loading && user && (isClientAccount || hasPendingClientClaim || clientLibraryAccess) && !isPreviewMode) {
       const hash = window.location.hash;
       if (!hash.startsWith('#/review/')) setCurrentView('client');
       return;
@@ -132,7 +144,7 @@ const AppContent: React.FC = () => {
         setEngineerTab('projects');
       }
     }
-  }, [user, loading, isStudioStaff, currentView, setCurrentView, setEngineerTab, clientLibraryAccess]);
+  }, [user, loading, isStudioStaff, isClientAccount, hasPendingClientClaim, currentView, setCurrentView, setEngineerTab, clientLibraryAccess]);
 
   // Listen to hash change for direct share links and tab routing
   useEffect(() => {
@@ -179,7 +191,7 @@ const AppContent: React.FC = () => {
         setActiveProjectId(null);
         setEngineerTab('projects');
       } else if (hash === '#engineer' || hash === '#/engineer' || hash === '#dashboard' || hash === '') {
-        if (isClientAccount) setCurrentView('client');
+        if (isClientAccount || hasPendingClientClaim || clientLibraryAccess) setCurrentView('client');
         else setCurrentView('engineer');
       }
     };
@@ -187,7 +199,7 @@ const AppContent: React.FC = () => {
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId, isClientAccount]);
+  }, [projects, setActiveClientToken, setCurrentView, setEngineerTab, setActiveProjectId, isClientAccount, hasPendingClientClaim, clientLibraryAccess]);
 
   // Auth should never leave the user on an indefinite blank/loading screen.
   if (loading) {
