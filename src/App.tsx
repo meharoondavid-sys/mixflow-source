@@ -165,9 +165,10 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Dedicated client account entry. Client accounts use email + password and
-  // never enter studio organization provisioning.
-  if (isClientAccountEntry && !user && !isPasswordRecovery) {
+  // Dedicated client account entry. Always show the client sign-in/create-account screen
+  // when ?client=1 is explicitly requested, even if an engineer session is already active.
+  // Signing in or creating a client account will replace the current auth session.
+  if (isClientAccountEntry && !isPasswordRecovery) {
     return <ClientAuthScreen />;
   }
 
