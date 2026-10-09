@@ -98,8 +98,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
     );
   };
 
-  const handleQuickAddClient = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleQuickAddClient = async () => {
     if (!quickClientName.trim()) {
       setQuickClientError('Client name is required.');
       return;
@@ -330,7 +329,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
             </div>
 
             {isQuickAddClientOpen && canManageClients && (
-              <form onSubmit={handleQuickAddClient} className="mb-2 p-3 bg-zinc-950 border border-emerald-500/30 rounded-xl space-y-2">
+              <div className="mb-2 p-3 bg-zinc-950 border border-emerald-500/30 rounded-xl space-y-2">
                 <p className="text-[11px] font-semibold text-zinc-200">Add a client without leaving this project</p>
                 {quickClientError && (
                   <p role="alert" className="text-[11px] text-red-400">{quickClientError}</p>
@@ -352,14 +351,15 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500"
                 />
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => void handleQuickAddClient()}
                   disabled={isCreatingClient || !quickClientName.trim()}
                   className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
                   {isCreatingClient ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
                   {isCreatingClient ? 'Adding client...' : 'Add and Select Client'}
                 </button>
-              </form>
+              </div>
             )}
 
             {clientsLoading ? (
