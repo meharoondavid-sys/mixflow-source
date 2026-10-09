@@ -314,9 +314,19 @@ const AppContent: React.FC = () => {
 };
 
 export default function App() {
+  // Hash changes do not automatically rerender a React app. Track them so
+  // links to standalone routes (such as mobile upload) actually open.
+  const [locationHash, setLocationHash] = React.useState(window.location.hash);
+
+  useEffect(() => {
+    const syncHash = () => setLocationHash(window.location.hash);
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
+  }, []);
+
   // Keep the mobile upload route outside the main studio providers.
   // This minimizes memory while Android's native file picker is open.
-  const mobileUploadMatch = window.location.hash.match(/^#\/mobile-upload\/([^?]+)/);
+  const mobileUploadMatch = locationHash.match(/^#\/mobile-upload\/([^?]+)/);
   if (mobileUploadMatch?.[1]) {
     return <MobileProjectFileUploadView projectId={decodeURIComponent(mobileUploadMatch[1])} />;
   }
