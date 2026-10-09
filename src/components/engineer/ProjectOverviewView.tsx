@@ -561,17 +561,14 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       {canManageProjects && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            window.location.href = `/#/mobile-upload/${encodeURIComponent(projectId)}?songId=${encodeURIComponent(song.id)}`;
-                          }}
+                        <a
+                          href={`/#/mobile-upload/${encodeURIComponent(projectId)}?songId=${encodeURIComponent(song.id)}`}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black border border-emerald-500 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
                           title={`Upload a file for ${song.title}`}
                         >
                           <Upload size={12} />
                           <span>Upload</span>
-                        </button>
+                        </a>
                       )}
                       <button
                         type="button"
