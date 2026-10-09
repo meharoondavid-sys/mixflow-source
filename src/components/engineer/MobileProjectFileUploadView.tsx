@@ -101,6 +101,7 @@ export const MobileProjectFileUploadView: React.FC<MobileProjectFileUploadViewPr
           endpoint,
           headers: {
             apikey: getSupabaseAnonKey(),
+            Authorization: `Bearer ${accessToken}`,
             'x-signature': token,
           },
           metadata: {
