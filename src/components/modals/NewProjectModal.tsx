@@ -12,7 +12,6 @@ import {
   Layers, 
   FileText,
   User,
-  ExternalLink,
   Sliders,
   Check
 } from 'lucide-react';
@@ -45,7 +44,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
     window.location.hash = '#/clients';
   });
 
-  const { clients, loading: clientsLoading } = useClients();
+  const { clients, loading: clientsLoading, createClient, canManageClients } = useClients();
   const { createProject, canManageProjects } = useProjects();
   const { availableServices, addServiceToProject } = useServices(undefined, isOpen);
 
@@ -70,6 +69,11 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false);
+  const [quickClientName, setQuickClientName] = useState('');
+  const [quickClientEmail, setQuickClientEmail] = useState('');
+  const [quickClientError, setQuickClientError] = useState<string | null>(null);
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
 
   if (!isOpen) return null;
 
@@ -92,6 +96,36 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setSongs((prev) =>
       prev.map((song, i) => (i === index ? { ...song, title } : song))
     );
+  };
+
+  const handleQuickAddClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickClientName.trim()) {
+      setQuickClientError('Client name is required.');
+      return;
+    }
+
+    setIsCreatingClient(true);
+    setQuickClientError(null);
+    const result = await createClient({
+      full_name: quickClientName.trim(),
+      email: quickClientEmail.trim() || null,
+      phone: null,
+      company_name: null,
+      notes: null,
+    });
+    setIsCreatingClient(false);
+
+    if (result.error || !result.client) {
+      setQuickClientError(result.error?.message || 'Could not create this client.');
+      return;
+    }
+
+    setClientId(result.client.id);
+    setQuickClientName('');
+    setQuickClientEmail('');
+    setIsQuickAddClientOpen(false);
+    setQuickClientError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -280,17 +314,53 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
               <label className="block text-zinc-300 font-medium">
                 Client / Artist <span className="text-emerald-400">*</span>
               </label>
-              {handleNavigateToClients && (
+              {canManageClients && (
                 <button
                   type="button"
-                  onClick={handleNavigateToClients}
+                  onClick={() => {
+                    setIsQuickAddClientOpen((open) => !open);
+                    setQuickClientError(null);
+                  }}
                   className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
                 >
-                  <span>+ Add New Client</span>
-                  <ExternalLink size={10} />
+                  <Plus size={12} />
+                  <span>{isQuickAddClientOpen ? 'Cancel Add Client' : 'Add Client Here'}</span>
                 </button>
               )}
             </div>
+
+            {isQuickAddClientOpen && canManageClients && (
+              <form onSubmit={handleQuickAddClient} className="mb-2 p-3 bg-zinc-950 border border-emerald-500/30 rounded-xl space-y-2">
+                <p className="text-[11px] font-semibold text-zinc-200">Add a client without leaving this project</p>
+                {quickClientError && (
+                  <p role="alert" className="text-[11px] text-red-400">{quickClientError}</p>
+                )}
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Client / artist name"
+                  value={quickClientName}
+                  onChange={(e) => setQuickClientName(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500"
+                />
+                <input
+                  type="email"
+                  placeholder="Email (optional)"
+                  value={quickClientEmail}
+                  onChange={(e) => setQuickClientEmail(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="submit"
+                  disabled={isCreatingClient || !quickClientName.trim()}
+                  className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {isCreatingClient ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  {isCreatingClient ? 'Adding client...' : 'Add and Select Client'}
+                </button>
+              </form>
+            )}
 
             {clientsLoading ? (
               <div className="py-2.5 px-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-500 font-mono text-xs">
@@ -299,13 +369,13 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
             ) : clients.length === 0 ? (
               <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs space-y-1.5">
                 <p>No clients exist in your studio workspace yet.</p>
-                {handleNavigateToClients && (
+                {canManageClients && (
                   <button
                     type="button"
-                    onClick={handleNavigateToClients}
+                    onClick={() => setIsQuickAddClientOpen(true)}
                     className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg text-[11px] font-semibold text-amber-200 transition-colors cursor-pointer"
                   >
-                    Go to Clients to add your first client
+                    Add your first client here
                   </button>
                 )}
               </div>
