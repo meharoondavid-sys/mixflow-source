@@ -31,18 +31,11 @@ interface NewProjectModalProps {
 export const NewProjectModal: React.FC<NewProjectModalProps> = ({
   isOpen: propIsOpen,
   onClose: propOnClose,
-  onSuccess,
-  onNavigateToClients: propOnNavigateToClients
+  onSuccess
 }) => {
-  const { isNewProjectOpen, setIsNewProjectOpen, setActiveProjectId, setEngineerTab } = useApp();
+  const { isNewProjectOpen, setIsNewProjectOpen } = useApp();
   const isOpen = propIsOpen !== undefined ? propIsOpen : isNewProjectOpen;
   const handleClose = propOnClose || (() => setIsNewProjectOpen(false));
-  const handleNavigateToClients = propOnNavigateToClients || (() => {
-    handleClose();
-    setActiveProjectId(null);
-    setEngineerTab('clients');
-    window.location.hash = '#/clients';
-  });
 
   const { clients, loading: clientsLoading, createClient, canManageClients } = useClients();
   const { createProject, canManageProjects } = useProjects();
@@ -341,6 +334,12 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   placeholder="Client / artist name"
                   value={quickClientName}
                   onChange={(e) => setQuickClientName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleQuickAddClient();
+                    }
+                  }}
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500"
                 />
                 <input
@@ -348,6 +347,12 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   placeholder="Email (optional)"
                   value={quickClientEmail}
                   onChange={(e) => setQuickClientEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleQuickAddClient();
+                    }
+                  }}
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500"
                 />
                 <button
