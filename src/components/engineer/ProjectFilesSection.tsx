@@ -63,6 +63,8 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
   const [selectedSourceFilter, setSelectedSourceFilter] = useState<'all' | 'client' | 'studio'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isUploadChoiceOpen, setIsUploadChoiceOpen] = useState(false);
+  const [isRequestFilesOpen, setIsRequestFilesOpen] = useState(false);
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
   const [uploadSongId, setUploadSongId] = useState<string>('');
   const [modalError, setModalError] = useState<string | null>(null);
@@ -223,13 +225,24 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
         </div>
 
         {canUpload && (
-          <button
-            onClick={() => handleOpenUpload()}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs transition-all shadow-lg shadow-emerald-950/40 cursor-pointer self-start sm:self-auto"
-          >
-            <Upload size={14} />
-            <span>Upload File</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 self-start sm:self-auto w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setIsUploadChoiceOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs transition-all shadow-lg shadow-emerald-950/40 cursor-pointer"
+            >
+              <Upload size={14} />
+              <span>Upload Files</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsRequestFilesOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-200 border border-sky-400/30 font-semibold rounded-xl text-xs transition-all cursor-pointer"
+            >
+              <ExternalLink size={14} />
+              <span>Request Files from Client</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -452,6 +465,52 @@ export const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Upload choice: keep device uploads and client uploads as distinct workflows. */}
+      {isUploadChoiceOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-white">Upload Files</h4>
+                <p className="text-xs text-zinc-400 mt-1">Choose who is sending the files.</p>
+              </div>
+              <button type="button" onClick={() => setIsUploadChoiceOpen(false)} className="text-zinc-500 hover:text-zinc-200 p-1 rounded-lg" aria-label="Close upload options"><X size={16} /></button>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setIsUploadChoiceOpen(false); handleOpenUpload(); }}
+              className="w-full text-left flex items-start gap-3 p-4 rounded-2xl border border-zinc-700 bg-zinc-950 hover:border-emerald-400/60 transition-colors"
+            >
+              <span className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0"><Upload size={18} /></span>
+              <span><span className="block text-sm font-semibold text-white">Upload from this device</span><span className="block text-xs text-zinc-400 mt-1">Choose files from your computer or phone and add them to the project.</span></span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsUploadChoiceOpen(false); setIsRequestFilesOpen(true); }}
+              className="w-full text-left flex items-start gap-3 p-4 rounded-2xl border border-zinc-700 bg-zinc-950 hover:border-sky-400/60 transition-colors"
+            >
+              <span className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-300 flex items-center justify-center shrink-0"><ExternalLink size={18} /></span>
+              <span><span className="block text-sm font-semibold text-white">Send a link to the client</span><span className="block text-xs text-zinc-400 mt-1">Let your client upload project files from their browser.</span></span>
+            </button>
+            <button type="button" onClick={() => setIsUploadChoiceOpen(false)} className="w-full py-2 text-xs text-zinc-400 hover:text-white">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Client request flow is surfaced now; link creation is connected in the next backend step. */}
+      {isRequestFilesOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-300 flex items-center justify-center shrink-0"><ExternalLink size={18} /></span>
+              <div><h4 className="text-sm font-bold text-white">Request Files from Client</h4><p className="text-xs text-zinc-400 mt-1">A secure upload link will let your client send any files for this project without creating an account.</p></div>
+            </div>
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs text-amber-100/80">Secure client-link creation is not connected yet. No link has been created or sent.</div>
+            <button type="button" onClick={() => setIsRequestFilesOpen(false)} className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold">Close</button>
+          </div>
         </div>
       )}
 
