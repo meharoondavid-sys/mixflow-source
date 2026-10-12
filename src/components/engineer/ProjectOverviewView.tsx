@@ -91,6 +91,13 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isFilesCardOpen, setIsFilesCardOpen] = useState(false);
+  const [selectedFilesSongId, setSelectedFilesSongId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isFilesCardOpen || !selectedFilesSongId) return;
+    window.dispatchEvent(new CustomEvent('mixflow:project-file-filter', { detail: { songId: selectedFilesSongId } }));
+  }, [isFilesCardOpen, selectedFilesSongId]);
 
   // Song Edit / Delete Modal states
   const [editingSong, setEditingSong] = useState<ProjectSongRecord | null>(null);
@@ -575,8 +582,8 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            window.dispatchEvent(new CustomEvent('mixflow:project-file-filter', { detail: { songId: song.id } }));
-                            document.getElementById('project-files-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            setSelectedFilesSongId(song.id);
+                            setIsFilesCardOpen(true);
                           }}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
                           title={`View files for ${song.title}`}
@@ -1180,6 +1187,28 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
         projectName={project.name}
         songs={project.songs || []}
       />
+
+      {/* Files opens in its own focused card so the engineer never has to scroll down. */}
+      {isFilesCardOpen && project && (
+        <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-start justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="w-full max-w-6xl my-2 sm:my-6 space-y-3">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 shadow-xl">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white">Project Files</p>
+                <p className="text-xs text-zinc-400 truncate">{project.name} · {selectedFilesSongId ? project.songs?.find((song) => song.id === selectedFilesSongId)?.title || 'Selected track' : 'All tracks'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilesCardOpen(false)}
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
+              >
+                <ArrowLeft size={14} /> Back to Project
+              </button>
+            </div>
+            <ProjectFilesSection key={selectedFilesSongId || 'all-project-files'} projectId={project.id} songs={project.songs || []} />
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
