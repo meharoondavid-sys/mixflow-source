@@ -699,6 +699,11 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
           </div>
 
 
+      {/* Desktop: dedicated feedback view directly beneath the song card. Mobile keeps its existing section order below. */}
+      <div className="hidden lg:block">
+        <ProjectFeedbackTab projectId={project.id} songs={project.songs || []} />
+      </div>
+
       {/* Quantitative Metric Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Price */}
@@ -1170,8 +1175,10 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
       {/* Project & Song Files Management Section (Step 9) */}
       <ProjectFilesSection projectId={project.id} songs={project.songs || []} />
 
-      {/* Audio Versions & Timestamped Client Feedback (Step 11 & 12) */}
-      <ProjectFeedbackTab projectId={project.id} songs={project.songs || []} />
+      {/* Mobile: preserve the existing feedback section position and layout. */}
+      <div className="lg:hidden">
+        <ProjectFeedbackTab projectId={project.id} songs={project.songs || []} />
+      </div>
 
       {/* Payments & Billing Foundation (Step 13) */}
       <ProjectPaymentsSection
