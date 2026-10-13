@@ -48,6 +48,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
   const { setActiveProjectId, setEngineerTab } = useApp();
 
   const [search, setSearch] = useState('');
+  const [attentionSearch, setAttentionSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | ProjectType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
@@ -101,6 +102,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
     p.status === 'in_review' ||
     p.status === 'awaiting_files'
   );
+  const filteredNeedsAttention = needsAttention.filter((p) => {
+    const q = attentionSearch.toLowerCase().trim();
+    return !q || p.name.toLowerCase().includes(q) || (p.client?.full_name || '').toLowerCase().includes(q);
+  });
 
   const attentionLabel = (status: ProjectStatus) => {
     if (status === 'needs_revision') return 'Revision requested';
@@ -176,76 +181,72 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
       {/* Needs attention */}
       {needsAttention.length > 0 && (
         <section className="space-y-3">
-          <div className="flex items-end justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold text-white">Needs your attention</h2>
               <p className="text-[11px] text-zinc-500 mt-0.5">The projects that need your next action.</p>
             </div>
-            <span className="text-[10px] font-mono text-zinc-500">{needsAttention.length} active</span>
+            <span className="text-[10px] font-mono text-zinc-500">{filteredNeedsAttention.length} of {needsAttention.length} projects</span>
           </div>
-          <div className="grid gap-2">
-            {needsAttention.slice(0, 4).map((project) => {
-              const isRevision = project.status === 'needs_revision';
-              const isReview = project.status === 'in_review';
-              return (
-                <button
-                  key={project.id}
-                  onClick={() => handleOpenProject(project.id)}
-                  className="w-full text-left flex items-center gap-3 p-3.5 bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 rounded-2xl transition-all group"
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                    isRevision ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                    isReview ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
-                    'bg-zinc-800 text-zinc-400 border-zinc-700'
-                  }`}>
-                    {isRevision ? <MessageSquare size={16} /> : isReview ? <Clock3 size={16} /> : <Music size={16} />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-zinc-100 truncate">{project.name}</span>
-                      <span className="text-[10px] text-zinc-500">· {project.client?.full_name || 'Client'}</span>
+
+          <div className="relative w-full">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search by project name or client..."
+              value={attentionSearch}
+              onChange={(e) => setAttentionSearch(e.target.value)}
+              className="w-full pl-9 pr-9 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
+              aria-label="Search projects needing attention by project or client"
+            />
+            {attentionSearch && (
+              <button
+                onClick={() => setAttentionSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-1"
+                title="Clear attention search"
+                aria-label="Clear attention search"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {filteredNeedsAttention.length > 0 ? (
+            <div className="grid gap-2">
+              {filteredNeedsAttention.slice(0, 4).map((project) => {
+                const isRevision = project.status === 'needs_revision';
+                const isReview = project.status === 'in_review';
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => handleOpenProject(project.id)}
+                    className="w-full text-left flex items-center gap-3 p-3.5 bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 rounded-2xl transition-all group"
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                      isRevision ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                      isReview ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
+                      'bg-zinc-800 text-zinc-400 border-zinc-700'
+                    }`}>
+                      {isRevision ? <MessageSquare size={16} /> : isReview ? <Clock3 size={16} /> : <Music size={16} />}
                     </div>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">{attentionLabel(project.status)}</p>
-                  </div>
-                  <ChevronRight size={15} className="shrink-0 text-zinc-600 group-hover:text-emerald-400 transition-colors" />
-                </button>
-              );
-            })}
-          </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold text-zinc-100 truncate">{project.name}</span>
+                        <span className="text-[10px] text-zinc-500">· {project.client?.full_name || 'Client'}</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">{attentionLabel(project.status)}</p>
+                    </div>
+                    <ChevronRight size={15} className="shrink-0 text-zinc-600 group-hover:text-emerald-400 transition-colors" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-xs text-zinc-400">
+              No projects match that project or client name.
+            </div>
+          )}
         </section>
-      )}
-
-      {/* Metric Cards (only shown when projects exist) */}
-      {projects.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <span className="text-[11px] text-zinc-400 block mb-1">Total Projects</span>
-            <div className="text-xl font-bold font-mono text-white tabular-nums">
-              {projects.length}
-            </div>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <span className="text-[11px] text-zinc-400 block mb-1">In Production</span>
-            <div className="text-xl font-bold font-mono text-sky-400 tabular-nums">
-              {activeCount}
-            </div>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <span className="text-[11px] text-zinc-400 block mb-1">Approved / Complete</span>
-            <div className="text-xl font-bold font-mono text-emerald-400 tabular-nums">
-              {completedCount}
-            </div>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <span className="text-[11px] text-zinc-400 block mb-1">Total Contract Value</span>
-            <div className="text-xl font-bold font-mono text-zinc-200 tabular-nums">
-              {formatCurrency(totalValue)}
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Filter and Search Bar */}
@@ -381,226 +382,93 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
           </button>
         </div>
       ) : (
-        /* Projects List / Table */
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-          {/* Desktop Table View */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-zinc-950/70 border-b border-zinc-800 text-zinc-400 font-mono">
-                <tr>
-                  <th className="py-3.5 px-4 font-medium">Project Name</th>
-                  <th className="py-3.5 px-4 font-medium">Client</th>
-                  <th className="py-3.5 px-4 font-medium">Type</th>
-                  <th className="py-3.5 px-4 font-medium">Status</th>
-                  <th className="py-3.5 px-4 font-medium">Deadline</th>
-                  <th className="py-3.5 px-4 font-medium">Price</th>
-                  <th className="py-3.5 px-4 font-medium">Deposit</th>
-                  <th className="py-3.5 px-4 font-medium text-center">Tracks</th>
-                  <th className="py-3.5 px-4 font-medium text-center">Services</th>
-                  <th className="py-3.5 px-4 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/80">
-                {filteredProjects.map((project) => {
-                  const statusInfo = PROJECT_STATUS_CONFIG[project.status] || {
-                    label: project.status,
-                    color: 'text-zinc-300',
-                    bg: 'bg-zinc-800',
-                    border: 'border-zinc-700',
-                  };
+        /* Projects as Cards */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredProjects.map((project) => {
+            const statusInfo = PROJECT_STATUS_CONFIG[project.status] || {
+              label: project.status,
+              color: 'text-zinc-300',
+              bg: 'bg-zinc-800',
+              border: 'border-zinc-700',
+            };
+            const songCount = project.songs?.length || 0;
+            const serviceCount = project.service_count || 0;
+            const typeStyle = project.project_type === 'single'
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              : project.project_type === 'ep'
+              ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+              : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
 
-                  const songCount = project.songs?.length || 0;
-                  const serviceCount = project.service_count || 0;
-
-                  return (
-                    <tr 
-                      key={project.id} 
-                      onClick={() => handleOpenProject(project.id)}
-                      className="hover:bg-zinc-850/50 transition-colors cursor-pointer group"
-                    >
-                      {/* Project Name */}
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-                            project.project_type === 'single'
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                              : project.project_type === 'ep'
-                              ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
-                              : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                          }`}>
-                            {project.project_type === 'single' ? (
-                              <Music size={14} />
-                            ) : project.project_type === 'ep' ? (
-                              <Layers size={14} />
-                            ) : (
-                              <Disc3 size={14} />
-                            )}
-                          </div>
-                          <div>
-                            <span className="font-bold text-zinc-100 group-hover:text-emerald-400 transition-colors block">
-                              {project.name}
-                            </span>
-                            {project.description && (
-                              <span className="text-[10px] text-zinc-500 line-clamp-1 max-w-[180px]">
-                                {project.description}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Client */}
-                      <td className="py-4 px-4">
-                        <span className="font-medium text-zinc-200 block">
-                          {project.client?.full_name || '—'}
-                        </span>
-                        {project.client?.company_name && (
-                          <span className="text-[11px] text-zinc-500">
-                            {project.client.company_name}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Project Type */}
-                      <td className="py-4 px-4 font-mono">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold border ${
-                          project.project_type === 'single'
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : project.project_type === 'ep'
-                            ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
-                            : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
-                        }`}>
-                          {project.project_type}
-                        </span>
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-4 px-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${statusInfo.bg} ${statusInfo.color} ${statusInfo.border}`}>
-                          {statusInfo.label}
-                        </span>
-                      </td>
-
-                      {/* Deadline */}
-                      <td className="py-4 px-4 text-zinc-300 font-mono text-[11px]">
-                        {formatDate(project.deadline)}
-                      </td>
-
-                      {/* Price */}
-                      <td className="py-4 px-4 font-mono font-bold text-zinc-100">
-                        {formatCurrency(project.project_price)}
-                      </td>
-
-                      {/* Deposit */}
-                      <td className="py-4 px-4 font-mono text-zinc-300">
-                        {formatCurrency(project.deposit_amount)}
-                      </td>
-
-                      {/* Song Count */}
-                      <td className="py-4 px-4 text-center">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
-                          <Music size={11} className="text-emerald-400" />
-                          <span>{songCount}</span>
-                        </span>
-                      </td>
-
-                      {/* Service Count */}
-                      <td className="py-4 px-4 text-center">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
-                          <Sliders size={11} className="text-sky-400" />
-                          <span>{serviceCount}</span>
-                        </span>
-                      </td>
-
-                      {/* Action */}
-                      <td className="py-4 px-4 text-right">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-800 group-hover:bg-emerald-500/10 group-hover:text-emerald-400 text-zinc-300 rounded-lg text-[11px] transition-colors font-medium">
-                          <span>Overview</span>
-                          <ChevronRight size={12} />
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="lg:hidden divide-y divide-zinc-800/80">
-            {filteredProjects.map((project) => {
-              const statusInfo = PROJECT_STATUS_CONFIG[project.status] || {
-                label: project.status,
-                color: 'text-zinc-300',
-                bg: 'bg-zinc-800',
-                border: 'border-zinc-700',
-              };
-
-              const songCount = project.songs?.length || 0;
-              const serviceCount = project.service_count || 0;
-
-              return (
-                <div 
-                  key={project.id} 
-                  onClick={() => handleOpenProject(project.id)}
-                  className="p-4 space-y-3 hover:bg-zinc-850/50 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-                        project.project_type === 'single'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : project.project_type === 'ep'
-                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
-                          : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                      }`}>
-                        {project.project_type === 'single' ? (
-                          <Music size={14} />
-                        ) : project.project_type === 'ep' ? (
-                          <Layers size={14} />
-                        ) : (
-                          <Disc3 size={14} />
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-white text-xs">{project.name}</h4>
-                        <p className="text-[11px] text-zinc-400">
-                          {project.client?.full_name || 'Independent Client'}
-                        </p>
-                      </div>
+            return (
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => handleOpenProject(project.id)}
+                className="w-full text-left bg-zinc-900 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/80 rounded-2xl p-4 sm:p-5 space-y-4 transition-all group focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                      project.project_type === 'single'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : project.project_type === 'ep'
+                        ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                        : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                    }`}>
+                      {project.project_type === 'single' ? <Music size={17} /> : project.project_type === 'ep' ? <Layers size={17} /> : <Disc3 size={17} />}
                     </div>
-
-                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold border ${statusInfo.bg} ${statusInfo.color} ${statusInfo.border}`}>
-                      {statusInfo.label}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-zinc-400">
-                    <div>
-                      <span className="text-zinc-500 block text-[10px] uppercase">Price / Deposit</span>
-                      <span className="text-zinc-200 font-bold">{formatCurrency(project.project_price)}</span>
-                      <span className="text-zinc-500 text-[10px] ml-1">({formatCurrency(project.deposit_amount)} dep)</span>
-                    </div>
-
-                    <div>
-                      <span className="text-zinc-500 block text-[10px] uppercase">Tracks & Services</span>
-                      <span className="text-emerald-400">{songCount} track(s)</span>
-                      <span className="text-zinc-600 mx-1">·</span>
-                      <span className="text-sky-400">{serviceCount} service(s)</span>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-zinc-100 group-hover:text-emerald-400 transition-colors break-words">{project.name}</h3>
+                      <p className="text-xs text-zinc-400 mt-1 truncate">{project.client?.full_name || 'Independent Client'}</p>
+                      {project.client?.company_name && <p className="text-[11px] text-zinc-500 mt-0.5 truncate">{project.client.company_name}</p>}
                     </div>
                   </div>
+                  <ChevronRight size={16} className="text-zinc-600 group-hover:text-emerald-400 shrink-0 mt-1 transition-colors" />
+                </div>
 
-                  <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 pt-1 border-t border-zinc-800/60">
-                    <span>Deadline: {formatDate(project.deadline)}</span>
-                    <span className="text-emerald-400 flex items-center gap-0.5">
-                      <span>View</span>
-                      <ChevronRight size={10} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border ${statusInfo.bg} ${statusInfo.color} ${statusInfo.border}`}>
+                    {statusInfo.label}
+                  </span>
+                  <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase border ${typeStyle}`}>
+                    {project.project_type}
+                  </span>
+                </div>
+
+                {project.description && (
+                  <p className="text-xs text-zinc-500 line-clamp-2">{project.description}</p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 border-t border-zinc-800 pt-3">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-1">Tracks</span>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                      <Music size={13} className="text-emerald-400" /> {songCount}
                     </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-1">Services</span>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                      <Sliders size={13} className="text-sky-400" /> {serviceCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-1">Contract value</span>
+                    <span className="text-xs font-bold text-zinc-100">{formatCurrency(project.project_price)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-1">Deadline</span>
+                    <span className="text-xs text-zinc-300">{formatDate(project.deadline)}</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                  <span>{formatCurrency(project.deposit_amount)} deposit</span>
+                  <span className="text-emerald-400 font-semibold">Open project <ChevronRight size={12} className="inline ml-0.5" /></span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
