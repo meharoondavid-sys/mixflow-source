@@ -637,6 +637,26 @@ export const ProjectOverviewView: React.FC<ProjectOverviewViewProps> = ({
                               <Link2 size={12} />
                               <span>Copy Review Link</span>
                             </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!project.project_code) {
+                                  alert('The client project code is not available yet.');
+                                  return;
+                                }
+                                try {
+                                  await navigator.clipboard.writeText(project.project_code);
+                                  alert('Project code copied. Share it with your client to connect them to this project.');
+                                } catch {
+                                  window.prompt('Copy this project code to share with your client:', project.project_code);
+                                }
+                              }}
+                              className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-200 border border-sky-400/30 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                              title="Copy the client project code"
+                            >
+                              <Link2 size={12} />
+                              <span>Share Project</span>
+                            </button>
                           </>
                         )}
                       </div>
