@@ -578,16 +578,19 @@ export const ProjectFeedbackTab: React.FC<ProjectFeedbackTabProps> = ({ projectI
       )}
 
       {/* Feedback Section with Filters and Resolution Controls */}
-      <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+      <section aria-label="Client feedback panel" className="bg-zinc-900/80 border border-sky-500/30 rounded-2xl p-5 sm:p-6 space-y-5 shadow-lg shadow-black/10 ring-1 ring-white/[0.03]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-700/80">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/25 text-sky-300"><MessageSquare size={18} /></div>
+            <div>
           <div>
-            <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Clock size={14} className="text-zinc-400" />
-              <span>Client Feedback Notes for Mix v{selectedVersion?.version_number || 1}</span>
+            <h3 className="text-base font-bold text-white flex items-center gap-1.5">
+              <span>Client Feedback</span>
             </h3>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
-              Permanently attached to this immutable mix version.
+            <p className="text-xs text-zinc-400 mt-1">
+              Notes left by the client on Mix v{selectedVersion?.version_number || 1}, shown with their timestamps and comments.
             </p>
+            </div>
           </div>
 
           {/* Filter Pills */}
@@ -640,7 +643,7 @@ export const ProjectFeedbackTab: React.FC<ProjectFeedbackTabProps> = ({ projectI
             {filteredFeedback.map((item) => (
               <div
                 key={item.id}
-                className="bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-4 text-xs space-y-2 flex flex-col sm:flex-row sm:items-start justify-between gap-3"
+                className="bg-zinc-950/70 border border-zinc-800 rounded-xl p-4 sm:p-5 text-xs space-y-3 flex flex-col sm:flex-row sm:items-start justify-between gap-4"
               >
                 <div className="space-y-1.5 flex-1">
                   <div className="flex items-center gap-2">
@@ -658,13 +661,13 @@ export const ProjectFeedbackTab: React.FC<ProjectFeedbackTabProps> = ({ projectI
                       <Play size={10} />
                       <span>{formatTime(Number(item.timestamp_seconds))}</span>
                     </button>
-                    <span className="font-semibold text-zinc-200">{item.author_name}</span>
+                    <span className="font-semibold text-zinc-100">{item.author_name}</span>
                     <span className="text-[10px] text-zinc-500 font-mono">
                       {new Date(item.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
 
-                  <p className="text-zinc-300 leading-relaxed text-xs">{item.comment}</p>
+                  <p className="text-zinc-200 leading-relaxed text-sm whitespace-pre-wrap">{item.comment}</p>
 
                   {item.status === 'resolved' && item.resolved_at && (
                     <p className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
@@ -702,7 +705,7 @@ export const ProjectFeedbackTab: React.FC<ProjectFeedbackTabProps> = ({ projectI
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Upload New Version Modal with Revision Context */}
       {isUploadingVersion && (
