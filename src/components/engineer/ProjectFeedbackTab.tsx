@@ -583,7 +583,6 @@ export const ProjectFeedbackTab: React.FC<ProjectFeedbackTabProps> = ({ projectI
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/25 text-sky-300"><MessageSquare size={18} /></div>
             <div>
-          <div>
             <h3 className="text-base font-bold text-white flex items-center gap-1.5">
               <span>Client Feedback</span>
             </h3>
