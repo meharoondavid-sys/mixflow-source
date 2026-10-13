@@ -114,11 +114,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
     return PROJECT_STATUS_CONFIG[status]?.label || status;
   };
 
-  // Compute studio metrics from the current project list
-  const totalValue = projects.reduce((acc, p) => acc + (p.project_price || 0), 0);
-  const activeCount = projects.filter((p) => p.status === 'in_production' || p.status === 'in_review').length;
-  const completedCount = projects.filter((p) => p.status === 'completed' || p.status === 'approved').length;
-
   return (
     <div className="space-y-6">
       {/* Studio Projects Header */}
