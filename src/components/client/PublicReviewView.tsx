@@ -74,6 +74,20 @@ export const PublicReviewView: React.FC = () => {
           </div>
         ) : (
           <>
+            <section className="max-w-7xl mx-auto mb-5 rounded-2xl border border-zinc-800 bg-zinc-900/80 px-5 py-4 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-zinc-500">Project</p>
+                <h1 className="text-lg font-bold text-white mt-1">{data.project.name || 'Your project'}</h1>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-zinc-500">Project status</p>
+                <p className="text-sm font-bold text-blue-300 mt-1">
+                  {data.project.status
+                    ? String(data.project.status).replace(/[_-]+/g, ' ').replace(/\\b\\w/g, (letter: string) => letter.toUpperCase())
+                    : 'Status unavailable'}
+                </p>
+              </div>
+            </section>
             <ClientAudioReviewView
               projectId={data.project.id}
               songs={[data.song]}
