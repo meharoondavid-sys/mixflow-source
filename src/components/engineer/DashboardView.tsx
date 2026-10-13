@@ -52,6 +52,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
   const [typeFilter, setTypeFilter] = useState<'all' | ProjectType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [dashboardTheme, setDashboardTheme] = useState<'studio' | 'light' | 'hybrid'>('studio');
 
   const filteredProjects = projects.filter((p) => {
     const q = search.toLowerCase().trim();
@@ -115,7 +116,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onSelectProject })
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 engineer-theme-root" data-engineer-theme={dashboardTheme}>
+      <style>{`.engineer-theme-root { transition: background-color .2s ease, color .2s ease; border-radius:16px; }
+.engineer-theme-root[data-engineer-theme="light"] { background:#f3f6fb; color:#1e293b; padding:18px; }
+.engineer-theme-root[data-engineer-theme="light"] [class*="bg-zinc-950"], .engineer-theme-root[data-engineer-theme="light"] [class*="bg-zinc-900"] { background-color:#fff !important; }
+.engineer-theme-root[data-engineer-theme="light"] [class*="border-zinc-800"], .engineer-theme-root[data-engineer-theme="light"] [class*="border-zinc-700"] { border-color:#dbe4f0 !important; }
+.engineer-theme-root[data-engineer-theme="light"] [class*="text-white"], .engineer-theme-root[data-engineer-theme="light"] [class*="text-zinc-100"], .engineer-theme-root[data-engineer-theme="light"] [class*="text-zinc-200"] { color:#172033 !important; }
+.engineer-theme-root[data-engineer-theme="light"] [class*="text-zinc-300"], .engineer-theme-root[data-engineer-theme="light"] [class*="text-zinc-400"] { color:#526176 !important; }
+.engineer-theme-root[data-engineer-theme="light"] [class*="text-zinc-500"], .engineer-theme-root[data-engineer-theme="light"] [class*="text-zinc-600"] { color:#68778d !important; }
+.engineer-theme-root[data-engineer-theme="light"] input, .engineer-theme-root[data-engineer-theme="light"] select { background:#fff !important; color:#172033 !important; border-color:#cbd5e1 !important; }
+.engineer-theme-root[data-engineer-theme="hybrid"] { background:#eef3f9; color:#1e293b; padding:18px; border-left:4px solid #334155; }
+.engineer-theme-root[data-engineer-theme="hybrid"] [class*="bg-zinc-950"] { background-color:#172337 !important; }
+.engineer-theme-root[data-engineer-theme="hybrid"] [class*="bg-zinc-900"] { background-color:#fff !important; }
+.engineer-theme-root[data-engineer-theme="hybrid"] [class*="border-zinc-800"], .engineer-theme-root[data-engineer-theme="hybrid"] [class*="border-zinc-700"] { border-color:#d5dfec !important; }
+.engineer-theme-root[data-engineer-theme="hybrid"] [class*="text-white"], .engineer-theme-root[data-engineer-theme="hybrid"] [class*="text-zinc-100"], .engineer-theme-root[data-engineer-theme="hybrid"] [class*="text-zinc-200"] { color:#172033 !important; }
+.engineer-theme-root[data-engineer-theme="hybrid"] [class*="text-zinc-300"], .engineer-theme-root[data-engineer-theme="hybrid"] [class*="text-zinc-400"], .engineer-theme-root[data-engineer-theme="hybrid"] [class*="text-zinc-500"] { color:#526176 !important; }
+.engineer-theme-root[data-engineer-theme="hybrid"] input, .engineer-theme-root[data-engineer-theme="hybrid"] select { background:#fff !important; color:#172033 !important; border-color:#cbd5e1 !important; }
+@media (prefers-reduced-motion: reduce) { .engineer-theme-root, .engineer-theme-root * { transition:none !important; } }`}</style>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
+        <div><p className="text-xs font-semibold text-zinc-200">Dashboard appearance</p><p className="text-[11px] text-zinc-400">Try all three themes and choose what feels comfortable.</p></div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Dashboard theme">
+          {([{ id: "studio", label: "Dark Studio" }, { id: "light", label: "Soft Light" }, { id: "hybrid", label: "Hybrid" }] as const).map((item) => (
+            <button key={item.id} type="button" onClick={() => setDashboardTheme(item.id)} aria-pressed={dashboardTheme === item.id} className={"rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 " + (dashboardTheme === item.id ? "border-sky-400 bg-sky-500/15 text-sky-300" : "border-zinc-700 bg-zinc-950/50 text-zinc-300 hover:border-sky-500/60")}>{item.label}</button>
+          ))}
+        </div>
+      </div>
       {/* Studio Projects Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
         <div>
